@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 ################### PARAMETERS ###########################
 ##########################################################
 
-timesteps=6000*50 #second number is total years
+timesteps=6000*30 #second number is total years
 dt=5256 #seconds, 1/6000 of year
 print(f"timestep dt ={dt/60:.2f} minutes")
 totaltime=timesteps*dt
@@ -56,9 +56,9 @@ HsensExT= 15 #w/m2 sensible heat flux exTropics
 lamdaTW=0
 lamdaTE=0
 lamdaET=0
-#lamdaTW=-10.0
-#lamdaTE=5.0
-#lamdaET=-0.5
+lamdaTW=-10.0
+lamdaTE=5.0
+lamdaET=-0.5
 
 t01=303 #init T box 1 WEST TROPICS
 t02=300 #init T box 2 EAST TROPICS
