@@ -52,13 +52,16 @@ HsensT= 10 #w/m2 sensible heat flux Tropics
 HsensExT= 15 #w/m2 sensible heat flux exTropics
 
 #radiative feedbacks, W/m2
-#comment out nonzero values to remove feedbacks
-lamdaTW=0
-lamdaTE=0
-lamdaET=0
-lamdaTW=-10.0
-lamdaTE=5.0
-lamdaET=-0.5
+
+feedbacks=True
+if feedbacks == False:
+    lamdaTW=0
+    lamdaTE=0
+    lamdaET=0
+else:
+    lamdaTW=-10.0
+    lamdaTE=5.0
+    lamdaET=-0.5
 
 t01=303 #init T box 1 WEST TROPICS
 t02=300 #init T box 2 EAST TROPICS
