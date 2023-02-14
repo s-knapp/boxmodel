@@ -51,23 +51,18 @@ RH=0.6 #rel hum
 HsensT= 10 #w/m2 sensible heat flux Tropics
 HsensExT= 15 #w/m2 sensible heat flux exTropics
 
-#radiative feedbacks, W/m2
-
-feedbacks=True
-if feedbacks == False:
-    lamdaTW=0
-    lamdaTE=0
-    lamdaET=0
-else:
-    lamdaTW=-10.0
-    lamdaTE=5.0
-    lamdaET=-0.5
-
 t01=303 #init T box 1 WEST TROPICS
 t02=300 #init T box 2 EAST TROPICS
 t03=292 #init T box 3 EX TROPICS
 t04=296 #init T box 4 EQ UNDER CURRENT
 
+#array for temps from all experiments, is appended automatically for each new exp
+allT=[]
+meanT=[]
+allLatent=[]
+allR=[]
+
+#%%
 ###########################################################
 ###################SCHEMES#################################
 ###########################################################
@@ -107,6 +102,19 @@ def es(t):
     p=p*1000 #Pa
     return p
 
+#radiative feedbacks, W/m2
+
+feedbacks=True
+if feedbacks == False:
+    lamdaTW=0
+    lamdaTE=0
+    lamdaET=0
+else:
+    lamdaTW=-10.0
+    lamdaTE=5.0
+    lamdaET=-0.5
+    
+    
 #def es2(t):
 #    t=t-273.15
 #    es=np.exp(34.494- (4924.99/(t+237.1)))/(t+105)**(1.57)
@@ -125,9 +133,12 @@ R1=[]; R2=[]; R3=[]
 H1OLR=[]; H2OLR=[]; H3OLR=[]
 H1Latent=[]; H2Latent=[]; H3Latent=[]
 
+
 #uniform warming
 E=E*0.85
 
+
+#%% MAIN LOOP
 for t in range(timesteps-1):
     
     
@@ -193,61 +204,74 @@ t1=np.asarray(t1)
 t2=np.asarray(t2)
 t3=np.asarray(t3)
 t4=np.asarray(t4)
-   
-#t0=[t1,t2,t3,t4]   
-tf=[t1,t2,t3,t4]     
+
+allT.append([t1,t2,t3,t4])
+allR.append([R1,R2,R3])
+    
 #####################################
-#%% sensitivity
-area1=M1/h1 #vol/depth
-area2=M2/h2
-area3=M3/h3 * np.cos(45*np.pi/180) # high lat weighting
-totarea = area1+area2+area3
-weights=[area1/totarea,area2/totarea,area3/totarea]
+# sensitivity
+#area1=M1/h1 #vol/depth
+#area2=M2/h2
+#area3=M3/h3
+totvol = M1+M2+M3
+weights=[M1/totvol,M2/totvol,M3/totvol]
 
 Tmean = 1/np.sum(weights)*(t1*weights[0] + t2*weights[1] + t3*weights[2])
 Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2])
 Tmeandiff = Tmean - Tmean0
 
+meanT.append(np.round(Tmeandiff,decimals=2))
 lam_eff = (1/Tmeandiff)*(lamdaTW*T1 + lamdaTE*T2 + lamdaET*T3)/3
 #Teff= -R/lam_eff     
 
 #%% PLOTS
+
+exps=['No feedbacks','Feedbacks']
+expcols=['tab:blue','tab:orange','tab:green','tab:purple']
+
 plt.figure(0)
-plt.plot(t1-t2)
-#plt.plot(t0[0]-t0[1])
-#plt.plot(tf[0]-tf[1])
+expnum=len(allT)
+for i in range(expnum):
+    plt.plot(allT[i][0]-allT[i][1]) # T1 - T2
 plt.title('Eq Gradient T1-T2')
 plt.ylabel('T1-T2')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
-plt.legend(['No feedbacks','Feedbacks'])
+plt.legend(exps)
 
+############
 plt.figure(1)
 plt.title("Temperatures")
-plt.plot(t1)
-plt.plot(t2)
-plt.plot(t3)
-plt.plot(t4)
+expnum=len(allT)
+for i in range(expnum):
+    plt.plot(allT[i][0],color=expcols[i],label=exps[i])
+    plt.plot(allT[i][1],color=expcols[i])
+    plt.plot(allT[i][2],color=expcols[i])
+    plt.plot(allT[i][3],color=expcols[i])
+
+plt.annotate("Trop W",xy=(0,allT[0][0][0]-0.3))
+plt.annotate("Trop E",xy=(0,allT[0][1][0]-0.3))
+plt.annotate("Ex Trop",xy=(0,allT[0][2][0]))
+plt.annotate("UnderCurrent",xy=(0,allT[0][3][0]))
+
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
-plt.legend(['Trop West','Trop East','ExTrop','Undercurrent'])
-#
+plt.legend()
+
+
+############
 plt.figure(2)
 plt.title('Radiation Balance')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
-plt.plot(R1)
-plt.plot(R2)
-plt.plot(R3)
-plt.legend(['Trop West','Trop East','ExTrop'])
-#
-#plt.figure(3)
-#plt.title("Latent(dashed) & OLR(solid)")
-#plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
-#plt.xlabel('Years') 
-#plt.plot(H1OLR,color='blue')
-#plt.plot(H2OLR,color='orange')
-#plt.plot(H3OLR,color='green')
-#plt.plot(H1Latent,color='blue',linestyle='--')
-#plt.plot(H2Latent,color='orange',linestyle='--')
-#plt.plot(H3Latent,color='green',linestyle='--')
+expnum=len(allR)
+for i in range(expnum):
+    plt.plot(allR[i][0],color=expcols[i],label=exps[i])
+    plt.plot(allR[i][1],color=expcols[i])
+    plt.plot(allR[i][2],color=expcols[i])
+    
+plt.annotate("Trop W",xy=(0,allR[0][0][0]-0.3))
+plt.annotate("Trop E",xy=(0,allR[0][1][0]-0.3))
+plt.annotate("Ex Trop",xy=(0,allR[0][2][0]))
+
+plt.legend()
