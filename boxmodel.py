@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 ################### PARAMETERS ###########################
 ##########################################################
 
-timesteps=6000*30 #second number is total years
+timesteps=6000*50 #second number is total years
 dt=5256 #seconds, 1/6000 of year
 print(f"timestep dt ={dt/60:.2f} minutes")
 totaltime=timesteps*dt
@@ -51,16 +51,42 @@ RH=0.6 #rel hum
 HsensT= 10 #w/m2 sensible heat flux Tropics
 HsensExT= 15 #w/m2 sensible heat flux exTropics
 
-t01=303 #init T box 1 WEST TROPICS
-t02=300 #init T box 2 EAST TROPICS
-t03=292 #init T box 3 EX TROPICS
-t04=296 #init T box 4 EQ UNDER CURRENT
+#params from Burls et al 2014 atmos EBM
+# shortwave in = S(1-alpha)
+# TOA OLR = BT + A
+# atmos convergence = gamma(Tmean - T)
+B = 1.7 # W/m2 / K
+A = 214 # W/m2
+gamma = 3.3 # W/m2 / K
+
+#CO2 FORCING AS A CONSTANT EVERYWHERE
+co2 = 8 #w/m2
+
+#the following based on CERES data calculated in ceres.py
+#to find range of alphas, use extreme values from all ceres data?
+alpha1 = 0.26; alpha2 = 0.20; alpha3 = 0.36
+S1 = 415; S2 = 415; S3 = 318
+
+
+t01=306.34 #303 #init T box 1 WEST TROPICS
+t02=303.45 #300 #init T box 2 EAST TROPICS
+t03=297.91 #292 #init T box 3 EX TROPICS/Nor Pacific
+t04=297.91 #296 #init T box 4 EQ UNDER CURRENT
+
+area1=M1/h1 #vol/depth
+area2=M2/h2
+area3=M3/h3
+
+totvol = M1+M2+M3
+weights=[M1/totvol,M2/totvol,M3/totvol]
+
 
 #array for temps from all experiments, is appended automatically for each new exp
 allT=[]
 meanT=[]
 allLatent=[]
 allR=[]
+
 
 #%%
 ###########################################################
@@ -112,9 +138,14 @@ if feedbacks == False:
 else:
     lamdaTW=-10.0
     lamdaTE=5.0
-    lamdaET=-0.5
+    lamdaET=-0.5 
     
-    
+def logi(t1,t2):
+    base=1/(1+np.exp(t2-t1+3))
+    mod=(base)*0.05 +0.27
+    return mod
+
+
 #def es2(t):
 #    t=t-273.15
 #    es=np.exp(34.494- (4924.99/(t+237.1)))/(t+105)**(1.57)
@@ -132,11 +163,20 @@ t4=[t04]
 R1=[]; R2=[]; R3=[]
 H1OLR=[]; H2OLR=[]; H3OLR=[]
 H1Latent=[]; H2Latent=[]; H3Latent=[]
+sw=[[],[],[]]; lw=[[],[],[]]; div=[[],[],[]]
+circ=[[],[],[]]
 
+Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2])
 
 #uniform warming
+#USE +4 INSTEAD?
 E=E*0.85
 
+#iterate through feedback params
+#feedbacks as only change of radiation, S and longwave fixed
+#first do only regional feedbacks
+# then add gradient dependency as well
+fb=[-10,1,0.2]
 
 #%% MAIN LOOP
 for t in range(timesteps-1):
@@ -161,29 +201,60 @@ for t in range(timesteps-1):
     
     q=Ah*( np.average([T1,T2],weights=[M1,M2]) - T3) + Aw*(T1-T2) #np.average([T1,T2],weights=[M1,M2])
     
-    H1latent=rhoair*Cd*Va1*L*0.622/p_air*es(T1)*(1-RH)
-    H1olr=E*sigma*T1**4
-    R=SwTW-H1latent-HsensT-H1olr +lamdaTW*dT1
+#    lam_glob = lamdaTW + lamdaTE #dominated by these two terms
+    #tie to circulation strength, rather than global
+    #look at 2014 burls paper, make surf w/m2 as diff from toa - atmosphere trans
+    
+    Tmean = 1/np.sum(weights)*(T1*weights[0] + T2*weights[1] + T3*weights[2])
+    
+#    H1latent=rhoair*Cd*Va1*L*0.622/p_air*es(T1)*(1-RH)
+#    H1olr=E*sigma*T1**4
+    
+#    R=SwTW-H1latent-HsensT-H1olr +lamdaTW*dT1
+#    R=SwTW-H1latent-HsensT-H1olr +lam_glob*dTmean
+#    R=SwTW-H1latent-HsensT-H1olr +lam_glob*dTmean + lamdaTW*dT1
+    
+    R= S1*(1-alpha1) - (B*(T1-273.15) + A) + gamma*(Tmean-T1) + co2
+    sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
+    div[0].append(gamma*(Tmean-T1))
+    circ[0].append(q*(1-epsilon)*(T2-T1))
     H1= 1/(Cp*rho*h1) * R
     R1.append(R)
-    H1OLR.append(H1olr)
-    H1Latent.append(H1latent)
+#    H1OLR.append(H1olr)
+#    H1Latent.append(H1latent)
     
-    H2latent=rhoair*Cd*Va2*L*0.622/p_air*es(T2)*(1-RH)
-    H2olr=E*sigma*T2**4
-    R=SwTE-H2latent-HsensT-H2olr +lamdaTE*dT2
+#    H2latent=rhoair*Cd*Va2*L*0.622/p_air*es(T2)*(1-RH)
+#    H2olr=E*sigma*T2**4
+#    R=SwTE-H2latent-HsensT-H2olr +lamdaTE*dT2
+#    R=SwTE-H2latent-HsensT-H2olr +lam_glob*dTmean
+#    R=SwTE-H2latent-HsensT-H2olr +lam_glob*dTmean + lamdaTE*dT2
+    
+    # east Pac feedback via Walker weakening
+    # albedo (alpha) logistic function of T1-T2...?
+    # 
+#    alpha2 =  logi(T1,T2)
+    R= S2*(1-alpha2) - (B*(T2-273.15) + A) + gamma*(Tmean-T2) + co2
+    sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
+    div[1].append(gamma*(Tmean-T2))
+    circ[1].append(q*(T4-T2))
     H2= 1/(Cp*rho*h2) * R
     R2.append(R)
-    H2OLR.append(H2olr)
-    H2Latent.append(H2latent)
+#    H2OLR.append(H2olr)
+#    H2Latent.append(H2latent)
     
-    H3latent=rhoair*Cd*Va3*L*0.622/p_air*es(T3)*(1-RH)
-    H3olr=E*sigma*T3**4
-    R=SwEx-H3latent-HsensExT-H3olr +lamdaET*dT3
+#    H3latent=rhoair*Cd*Va3*L*0.622/p_air*es(T3)*(1-RH)
+#    H3olr=E*sigma*T3**4
+#    R=SwEx-H3latent-HsensExT-H3olr +lamdaET*dT3
+#    R=SwEx-H3latent-HsensExT-H3olr +lam_glob*dTmean
+#    R=SwEx-H3latent-HsensExT-H3olr +lam_glob*dTmean + lamdaET*dT3
+    R= S3*(1-alpha3) - (B*(T3-273.15) + A) + gamma*(Tmean-T3) + co2
+    sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
+    div[2].append(gamma*(Tmean-T3))
+    circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
     H3= 1/(Cp*rho*h3) * R
     R3.append(R)
-    H3OLR.append(H3olr)
-    H3Latent.append(H3latent)
+#    H3OLR.append(H3olr)
+#    H3Latent.append(H3latent)
     
     T1=ft1(T1,T2,dt,q,epsilon,M1,H1)
     T2=ft2(T2,T4,dt,q,M2,H2)
@@ -210,9 +281,7 @@ allR.append([R1,R2,R3])
     
 #####################################
 # sensitivity
-#area1=M1/h1 #vol/depth
-#area2=M2/h2
-#area3=M3/h3
+
 totvol = M1+M2+M3
 weights=[M1/totvol,M2/totvol,M3/totvol]
 
@@ -226,13 +295,13 @@ lam_eff = (1/Tmeandiff)*(lamdaTW*T1 + lamdaTE*T2 + lamdaET*T3)/3
 
 #%% PLOTS
 
-exps=['No feedbacks','Feedbacks']
+exps=['No Feedbacks','Regional Feedbacks','Global Feedbacks','Regional & Global']
 expcols=['tab:blue','tab:orange','tab:green','tab:purple']
 
 plt.figure(0)
 expnum=len(allT)
 for i in range(expnum):
-    plt.plot(allT[i][0]-allT[i][1]) # T1 - T2
+    plt.plot(allT[i][0]-allT[i][1],color=expcols[i]) # T1 - T2
 plt.title('Eq Gradient T1-T2')
 plt.ylabel('T1-T2')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -275,3 +344,52 @@ plt.annotate("Trop E",xy=(0,allR[0][1][0]-0.3))
 plt.annotate("Ex Trop",xy=(0,allR[0][2][0]))
 
 plt.legend()
+
+############
+plt.figure(3)
+plt.title("Mean Temp Change")
+expnum=len(meanT)
+for i in range(expnum):
+    plt.plot(meanT[i],color=expcols[i],label=exps[i])
+    
+plt.ylabel('K')    
+plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.xlabel('Years') 
+plt.legend()
+
+plt.figure(4,figsize=(12,3))
+
+for i in range(3):
+    plt.subplot(2,2,1)
+    plt.title('sw toa')
+    plt.plot(sw[i],label=f"sw box{i+1}",color=expcols[i])
+    plt.legend()
+    plt.subplot(2,2,2)
+    plt.title('lw toa')
+    plt.plot(lw[i],label=f"lw box{i+1}",color=expcols[i])
+    plt.legend()
+    plt.subplot(2,2,3)
+    plt.title('atm div')
+    plt.plot(div[i],label=f"div box{i+1}",color=expcols[i])
+    plt.legend()
+    plt.subplot(2,2,4)
+    plt.plot(circ[i],label=f"ocean circ into box{i+1}", color=expcols[i])
+    plt.legend()
+
+#def logi(t1,t2):
+#    base=1/(1+np.exp(t2-t1+3))
+#    mod=(base)*0.05 +0.27
+#    return mod
+#
+#plt.plot(3-np.linspace(-4,6),logi(3,np.linspace(-4,6)))
+#plt.xlabel('T1-T2')
+
+#nino tiem series added as term
+
+#seasonal cycle of solar radiation
+smin=200
+smax=350
+
+cyc=(smax-smin)/2 *np.cos(np.linspace(0,2*np.pi,6000)) + smin + (smax-smin)/2
+cyc=np.tile(cyc,int(years))
+#plt.plot(cyc)
