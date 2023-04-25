@@ -9,12 +9,13 @@ Created on Wed Nov  2 11:11:59 2022
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 ##########################################################
 ################### PARAMETERS ###########################
 ##########################################################
 
-timesteps=6000*100 #second number is total years
+timesteps=6000*50 #second number is total years
 dt=5256 #seconds, 1/6000 of year
 print(f"timestep dt ={dt/60:.2f} minutes")
 totaltime=timesteps*dt
@@ -27,7 +28,7 @@ rho = 1027 # kg/m3 density of sea water at surface
 rhoair = 1.225 # kg/m3 dens of air
 p_air=100000 # Pa air pressure
 
-epsilon = 0.48 # ratio of flow out of box 2 into box 1
+epsilon = 0.48 # ratio of flow out
 M1=6.8e14 #m3, vol of box 1
 M2=6.8e14 #m3, vol of box 2
 M3=4e15 #m3, vol of box 3
@@ -37,19 +38,15 @@ Ah=4e6  #m3/(s K) hadley coupling param
 h1=50 #m, depth of box 1
 h2=50 #m, depth of box 2
 h3=200 #m, depth of box 3
-#SwTW=240 #w/m2 sw forcing tropics West
-#SwTE=240 #w/m2 sw forcing tropics East
-#SwEx=140 #w/m2 sw forcing extropics
-#E=0.18 #emissivity for control
-#sigma=5.67e-8 #w/m2K4 stefan-botzmann constant
-#Va1= 5 #wind speed box 1
-#Va2= 5 #wind speed box 2
-#Va3= 5 #wind speed box 3
-#Ld= 1.5e-3 #latent heat coefficient
-#L= 2.260e6 #J/kg latent heat of evap
-#RH=0.6 #rel hum
-#HsensT= 10 #w/m2 sensible heat flux Tropics
-#HsensExT= 15 #w/m2 sensible heat flux exTropics
+
+#constants for MSE div
+cp_air=1005; #J/kg/K
+L=2250000; #J/kg or 2260000
+ps=100000; #Pa
+RH=0.8; # relative humidity
+epsil=0.622; # ration of mass or vapour to dry air
+mse_gamma = 0.001581 # W/m2 / J/kg
+mse_int = -9.56 #intercept for mse regression
 
 #params from Burls et al 2014 atmos EBM
 # shortwave in = S(1-alpha)
@@ -67,11 +64,67 @@ co2 = 8 #w/m2
 alpha1 = 0.26; alpha2 = 0.20; alpha3 = 0.36
 S1 = 415; S2 = 415; S3 = 318
 
+#ranges of SW from CERES
+# S1 and S2: 386 in june to 437 in march
+S1min=386; S1max=437
+# S3: 143 in dec to 481 in june
+S3min=143; S3max=481
 
-t01=306.34 #303 #init T box 1 WEST TROPICS
-t02=303.45 #300 #init T box 2 EAST TROPICS
-t03=297.91 #292 #init T box 3 EX TROPICS/Nor Pacific
-t04=297.91 #296 #init T box 4 EQ UNDER CURRENT
+#create timeseries of SW for each 
+
+SW=[[],[],[]]
+for i in range(3):
+    if i in [0,1]:
+        smin=S1min
+        smax=S1max
+        shift=np.pi/2
+    else:
+        smin=S3min
+        smax=S3max
+        shift=np.pi
+    
+    cyc=(smax-smin)/2 *np.cos(np.linspace(0-shift,2*np.pi-shift,6000)) + smin + (smax-smin)/2
+    cyc=np.tile(cyc,int(years))
+    SW[i].append(cyc)
+    
+#plt.plot(SW[2][0])
+    
+#use nino data as forcing?
+n3=pd.read_table("D:/ninoindices/nina3.anom.data",sep="\s+",header=1,index_col=0,skipfooter=3,dtype=np.float32)
+
+nino=[[],[],[]]
+for i in range(3):
+    if i==1: #east
+        dat=np.asarray(n3.loc[np.arange(1980,2001)])
+        dat=dat.flatten()
+        
+        #find slope
+        X=np.vstack([np.arange(0,len(dat)),np.ones(len(dat))]).T
+        m,c=np.linalg.lstsq(X,dat,rcond=None)[0]
+        print(f"i={i} slope is {m}")
+        
+        dat=np.repeat(dat,500) #repeat monthly values for each timestep per month (500)
+        nino[i].append(dat)
+    else:
+        nino[i].append(np.zeros(timesteps))
+        
+#init temps for fixed SW and MSE divergence
+t01=299.12 #init T box 1 WEST TROPICS
+t02=296.75 #init T box 2 EAST TROPICS
+t03=291.16 #init T box 3 EX TROPICS/Nor Pacific
+t04=291.16 #init T box 4 EQ UNDER CURRENT
+        
+#init temps for fixed SW and gamma*(Tmean-T)
+#t01=306.34 #init T box 1 WEST TROPICS
+#t02=303.45 #init T box 2 EAST TROPICS
+#t03=297.91 #init T box 3 EX TROPICS/Nor Pacific
+#t04=297.91 #init T box 4 EQ UNDER CURRENT
+
+#init temps for seasonal SW
+#t01=304.1 #init T box 1 WEST TROPICS
+#t02=301.3 #init T box 2 EAST TROPICS
+#t03=296.0 #init T box 3 EX TROPICS/Nor Pacific
+#t04=296.0 #init T box 4 EQ UNDER CURRENT
 
 area1=M1/h1 #vol/depth
 area2=M2/h2
@@ -90,37 +143,8 @@ allR=[]
 
 #%%
 ###########################################################
-###################SCHEMES#################################
+###################FUNCTIONS#################################
 ###########################################################
-
-#forward time
-def ft1(T1,T2,dt,q,epsilon,M1,H1):
-     
-    tplus1 = T1 + dt/M1 * (M1*H1 + q*(1-epsilon)*(T2-T1)) 
-    
-    
-    return tplus1
-
-def ft2(T2,T4,dt,q,M2,H2):
-     
-    tplus1 = T2 + dt/M2 * (M2*H2 + q*(T4-T2)) 
-    
-    
-    return tplus1
-
-def ft3(T3,T1,T2,dt,q,epsilon,M3,H3):
-     
-    tplus1 = T3 + dt/M3 * (M3*H3 + q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3)) 
-    
-    
-    return tplus1
-
-def ft4(T4,M4,q,T3):
-    
-    tplus1 = T4 + dt/M4 * q*(T3-T4)
-    
-    return tplus1
-
 
 def es(t):
     t-=273.15
@@ -128,17 +152,13 @@ def es(t):
     p=p*1000 #Pa
     return p
 
-#radiative feedbacks, W/m2
+def mse(t): #moist static energy, constant rel hum, surface pressure
+    t=t-273.15
+    sat_vap_pressure = 1000.0 * 0.6112 * np.exp(17.67 * t / (t + 243.5)); # T in Celcius
+    qs=epsil/ps*sat_vap_pressure; #kg/kg
+    h=cp_air*(t+273.15)+L*RH*qs; #moist static energy J/kg
+    return h
 
-feedbacks=True
-if feedbacks == False:
-    lamdaTW=0
-    lamdaTE=0
-    lamdaET=0
-else:
-    lamda1=-10.0
-    lamda2=5.0
-    lamda3=-0.5 
     
 # sigmoid curve based on T gradient. plateus at lower and upper values
     #need a stable region near t1-t2=3 ? add two curves?
@@ -147,22 +167,10 @@ def logi(t1,t2):
     mod=(base)*0.05 +0.27
     return mod
 
-
-#def es2(t):
-#    t=t-273.15
-#    es=np.exp(34.494- (4924.99/(t+237.1)))/(t+105)**(1.57)
-#    return es
-# from https://journals.ametsoc.org/view/journals/apme/57/6/jamc-d-17-0334.1.xml
-# equation 17
 ##############################################################
 #####################EXECUTION################################
 ##############################################################
 
-
-
-#uniform warming
-#USE +4 INSTEAD?
-#E=E*0.85
 
 #iterate through feedback params
 #feedbacks as only change of radiation, S and longwave fixed
@@ -170,9 +178,20 @@ def logi(t1,t2):
 # then add gradient dependency as well
 fb=[
     [0,0,0],
-    [-5,-0.5,0.25]
+    [-5,-0.1,0.5],
+    [-5,-0.5,0.5],
+    [-5,-1,0.5],
+    [-5,-2,0.5],
+    [-5,-0.5,-0.5],
+    [-5,-0.5,-0.1],
+    [-5,-0.5,0.1],
+    [-2,-0.5,-0.1],
+    [-3,-0.5,-0.1],
+    [-4,-0.5,-0.1],
+    [-6,-0.5,-0.1],
     ]
-
+    
+#constant feedbacks all over same as control?
 #%% MAIN LOOP
 
 for i in range(len(fb)): #for each feedback set
@@ -200,52 +219,34 @@ for i in range(len(fb)): #for each feedback set
             T4=t04
             dT1=0 ; dT2=0; dT3=0
             
-    #    taux=0.01013145882*(T1-T2)
-    #    Va_1=np.sqrt(taux/(Cd*rhoair*10**-3))
-    #    
-    #    taux=0.01013145882*(T3 - 0.5*(T1-T2))
-    #    Va_et1=np.sqrt(taux/(Cd*rhoair*10**-3))
         
-        #the taux version of q gives weird behavior, all temps converge
-    #    q=Va_1*Aw + Va_et1*Ah
+        q=Ah*( np.average([T1,T2],weights=[M1,M2]) - T3) + Aw*(T1-T2) 
         
-        q=Ah*( np.average([T1,T2],weights=[M1,M2]) - T3) + Aw*(T1-T2) #np.average([T1,T2],weights=[M1,M2])
-        
-    #    lam_glob = lamdaTW + lamdaTE #dominated by these two terms
-        #tie to circulation strength, rather than global
-        #look at 2014 burls paper, make surf w/m2 as diff from toa - atmosphere trans
         
         Tmean = 1/np.sum(weights)*(T1*weights[0] + T2*weights[1] + T3*weights[2])
-        
-    #    H1latent=rhoair*Cd*Va1*L*0.622/p_air*es(T1)*(1-RH)
-    #    H1olr=E*sigma*T1**4
-        
-    #    R=SwTW-H1latent-HsensT-H1olr +lamdaTW*dT1
-    #    R=SwTW-H1latent-HsensT-H1olr +lam_glob*dTmean
-    #    R=SwTW-H1latent-HsensT-H1olr +lam_glob*dTmean + lamdaTW*dT1
+        mse_mean = 1/np.sum(weights)*(mse(T1)*weights[0] + mse(T2)*weights[1] + mse(T3)*weights[2])
+
         
         #local feedback: (Tnow - T0) * lambda
         fb1 = (T1 - t01) * fb[i][0]
+        #seasonal SW cycle
+#        S1=SW[0][0][t]
         
-        if i==0:
-            R= S1*(1-alpha1) - (B*(T1-273.15) + A) + gamma*(Tmean-T1) + co2 + fb1
-        else:
+#        if i==0:
+#            R= S1*(1-alpha1) - (B*(T1-273.15) + A) + gamma*(Tmean-T1) + co2 + fb1 #+ nino[0][0][t]
+#        else:
             #once equil is found, fix longwave to that and let feedbacks account for change
-            R= S1*(1-alpha1) - (B*(t01-273.15) + A) + gamma*(Tmean-T1) + co2 + fb1
+            
+        atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int #old version gamma*(Tmean-T1)
+        R= S1*(1-alpha1) - (B*(t01-273.15) + A) + atm_div + co2 + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
             
         sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
-        div[0].append(gamma*(Tmean-T1))
+        div[0].append(atm_div)
         circ[0].append(q*(1-epsilon)*(T2-T1))
         H1= 1/(Cp*rho*h1) * R
         R1.append(R)
     #    H1OLR.append(H1olr)
-    #    H1Latent.append(H1latent)
         
-    #    H2latent=rhoair*Cd*Va2*L*0.622/p_air*es(T2)*(1-RH)
-    #    H2olr=E*sigma*T2**4
-    #    R=SwTE-H2latent-HsensT-H2olr +lamdaTE*dT2
-    #    R=SwTE-H2latent-HsensT-H2olr +lam_glob*dTmean
-    #    R=SwTE-H2latent-HsensT-H2olr +lam_glob*dTmean + lamdaTE*dT2
         
         # east Pac feedback via Walker weakening
         # albedo (alpha) logistic function of T1-T2...?
@@ -255,46 +256,49 @@ for i in range(len(fb)): #for each feedback set
         #local feedback: (Tnow - T0) * lambda
         fb2 = (T2 - t02) * fb[i][1]
         
-        if i==0:
-            R= S2*(1-alpha2) - (B*(T2-273.15) + A) + gamma*(Tmean-T2) + co2 + fb2
-        else:
+        #seasonal SW cycle
+#        S2=SW[1][0][t]
+        
+#        if i==0:
+#            R= S2*(1-alpha2) - (B*(T2-273.15) + A) + gamma*(Tmean-T2) + co2 + fb2 #+ nino[1][0][t]
+#        else:
             #once equil is found, fix longwave to that and let feedbacks account for change
-            R= S2*(1-alpha2) - (B*(t02-273.15) + A) + gamma*(Tmean-T2) + co2 + fb2
+        atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
+        R= S2*(1-alpha2) - (B*(t02-273.15) + A) + atm_div + co2 + fb2 #+ nino[1][0][t]
             
         sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
-        div[1].append(gamma*(Tmean-T2))
+        div[1].append(atm_div)
         circ[1].append(q*(T4-T2))
         H2= 1/(Cp*rho*h2) * R
         R2.append(R)
     #    H2OLR.append(H2olr)
-    #    H2Latent.append(H2latent)
         
-    #    H3latent=rhoair*Cd*Va3*L*0.622/p_air*es(T3)*(1-RH)
-    #    H3olr=E*sigma*T3**4
-    #    R=SwEx-H3latent-HsensExT-H3olr +lamdaET*dT3
-    #    R=SwEx-H3latent-HsensExT-H3olr +lam_glob*dTmean
-    #    R=SwEx-H3latent-HsensExT-H3olr +lam_glob*dTmean + lamdaET*dT3
         
         #local feedback: (Tnow - T0) * lambda
         fb3 = (T3 - t03) * fb[i][2]
         
-        if i==0:
-            R= S3*(1-alpha3) - (B*(T3-273.15) + A) + gamma*(Tmean-T3) + co2 + fb3
-        else:
+        #seasonal SW cycle
+#        S3=SW[2][0][t]
+        
+#        if i==0:
+#            R= S3*(1-alpha3) - (B*(T3-273.15) + A) + gamma*(Tmean-T3) + co2 + fb3 #+ nino[2][0][t]
+#        else:
             #once equil is found, fix longwave to that and let feedbacks account for change
-            R= S3*(1-alpha3) - (B*(t03-273.15) + A) + gamma*(Tmean-T3) + co2 + fb3
+        atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int #old version gamma*(Tmean-T3)
+        R= S3*(1-alpha3) - (B*(t03-273.15) + A) + atm_div + co2 + fb3 #+ nino[2][0][t]
+        
         sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
-        div[2].append(gamma*(Tmean-T3))
+        div[2].append(atm_div)
         circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
         H3= 1/(Cp*rho*h3) * R
         R3.append(R)
     #    H3OLR.append(H3olr)
     #    H3Latent.append(H3latent)
         
-        T1=ft1(T1,T2,dt,q,epsilon,M1,H1)
-        T2=ft2(T2,T4,dt,q,M2,H2)
-        T3=ft3(T3,T1,T2,dt,q,epsilon,M3,H3)
-        T4=ft4(T4,M4,q,T3)
+        T1=T1 + dt/M1 * (M1*H1 + q*(1-epsilon)*(T2-T1)) 
+        T2=T2 + dt/M2 * (M2*H2 + q*(T4-T2) )#+ M2*nino[1][0][t-1]/(3600*24*30))
+        T3=T3 + dt/M3 * (M3*H3 + q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3)) 
+        T4=T4 + dt/M4 * q*(T3-T4)
         
         dT1=T1-t1[0]
         dT2=T2-t2[0]
@@ -330,8 +334,9 @@ for i in range(len(fb)): #for each feedback set
 
 #%% PLOTS
 
-exps=['Only Planck','Regional Feedbacks','Global Feedbacks','Regional & Global']
-expcols=['tab:blue','tab:orange','tab:green','tab:purple']
+exps=[str(fb[i]) for i in range(len(fb))]
+cmap = plt.get_cmap('jet')
+expcols=cmap(np.linspace(0,1,len(fb)))#['tab:blue','tab:orange','tab:green','tab:purple']
 
 plt.figure(0)
 expnum=len(allT)
@@ -355,8 +360,8 @@ for i in range(expnum):
 
 plt.annotate("Trop W",xy=(0,allT[0][0][0]-0.3))
 plt.annotate("Trop E",xy=(0,allT[0][1][0]-0.3))
-plt.annotate("Ex Trop",xy=(0,allT[0][2][0]))
-plt.annotate("UnderCurrent",xy=(0,allT[0][3][0]))
+plt.annotate("Ex Trop",xy=(24000,allT[0][2][24000]))
+plt.annotate("UnderCurrent",xy=(0,allT[0][3][24000]))
 
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
@@ -421,10 +426,4 @@ plt.legend()
 
 #nino tiem series added as term
 
-#seasonal cycle of solar radiation
-smin=200
-smax=350
 
-cyc=(smax-smin)/2 *np.cos(np.linspace(0,2*np.pi,6000)) + smin + (smax-smin)/2
-cyc=np.tile(cyc,int(years))
-#plt.plot(cyc)
