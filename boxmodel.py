@@ -10,6 +10,7 @@ Created on Wed Nov  2 11:11:59 2022
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import statsmodels.api as sm
 
 ##########################################################
 ################### PARAMETERS ###########################
@@ -181,6 +182,19 @@ def monmean(tseries,monsteps=500):
     
     return np.asarray(means)
 
+# https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2016GL071930
+# ends up being about 4 w/m2 per doubling
+def co2f(ppm):
+    co2_0= 267 #ppm PI/reference
+    a=-2.4e-7
+    b=7.2e-4
+    c=-2.1e-4
+    
+    forcing = ( a*(ppm-co2_0)**2 + b*(abs(ppm-co2_0))
+    +c*1800 + 5.36 ) * np.log(ppm/co2_0)
+    
+    return forcing
+
 ##############################################################
 #####################EXECUTION################################
 ##############################################################
@@ -220,10 +234,10 @@ fb=[
     [-4.0,(-3.0,-1.2),(-1.0,-0.5)]
     ]
 
-#agcm fixes ocean temps and transport at start values
-# BUT THIS IS WRONG, should fix temps and have 0 transport
-# while a slab ocean would have free temps and fixed transport
+# agcm fixes ocean temps and transport at 0
+# slab ocean has free temps and transport fixed at equilibrium vals
 agcm = False
+slab = False
 #%% MAIN LOOP
 
 for c in range(len(co2)): #for each co2 forcing
@@ -345,16 +359,22 @@ for c in range(len(co2)): #for each co2 forcing
             
             
             if agcm:
-                #fixed ocean transport at equilibrium values
-                ocean1 = -36227431
-                ocean2 = -164416748
-                ocean3 = 200642990
-                ocean4 = 1189
+                #no ocean transport!
+                ocean1 = 0
+                ocean2 = 0
+                ocean3 = 0
+                ocean4 = 0
                 #fixed ocean temps
                 T1=t01
                 T2=t02
                 T3=t03
                 T4=t04
+            elif slab:
+                #fixed ocean transport at equilibrium values
+                ocean1 = -36227431
+                ocean2 = -164416748
+                ocean3 = 200642990
+                ocean4 = 1189
             else:
                 #ocean transport
                 ocean1 = q*(1-epsilon)*(T2-T1)
@@ -410,7 +430,10 @@ for c in range(len(co2)): #for each co2 forcing
     
 #np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.meanT.npy',np.asarray(meanT))
 #np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.allT.npy',np.asarray(allT))
-#%% PLOTS
+
+#%% #########################################################################################
+################ PLOTS - EVERYTHING BELOW HERE ARE VARIOUS PLOTS ############################
+#############################################################################################
 
 exps=[str(fb[i]) for i in range(len(fb))]
 cmap = plt.get_cmap('jet')
@@ -868,3 +891,221 @@ axs.legend(handles=legend_elements, loc='upper right')
 
 #fig.savefig('gradsandtemp.png')
 #plt.close(fig)
+
+#%% ENERGY BALANCE - FIXED SW/LW + CO2 + FB*T
+# MAKE DATAFRAME OF CHARACTERISTICS OF GRADIENTS/SENSITIVITIES
+
+colors = ['tab:blue','tab:orange','tab:red']
+sens = []
+co2 = [4]
+
+#create dataframe with feedbacks, clim sens, and net feedback (estimated from regression)
+df = pd.DataFrame({'Box Feedbacks':fb, 'Sensitivity':np.zeros(len(fb)), 
+                   'Net Feedback':np.zeros(len(fb)), 'Max Gradient':np.zeros(len(fb)),
+                   'Time of Max Grad':np.zeros(len(fb)), 'Init Gradient':np.zeros(len(fb)),
+                   'Final Gradient':np.zeros(len(fb)), 'Time of Equal Grad':np.zeros(len(fb))})
+    
+dfm = pd.DataFrame({'Box Feedbacks':fb, 'Sensitivity':np.zeros(len(fb)), 
+                   'Net Feedback':np.zeros(len(fb)), 'Max Gradient':np.zeros(len(fb)),
+                   'Time of Max Grad':np.zeros(len(fb)), 'Init Gradient':np.zeros(len(fb)),
+                   'Final Gradient':np.zeros(len(fb)), 'Time of Equal Grad':np.zeros(len(fb))})
+
+for c in range(len(co2)):
+    sens.append([])
+    zonalgrad = [ allTmon[c][i][0] - allTmon[c][i][1] for i in range(len(allTmon[c])) ]
+    meridgrad = [ (allTmon[c][i][0]+allTmon[c][i][1])/2 - allTmon[c][i][2] for i in range(len(allTmon[c])) ]
+    for i in range(len(fb)):
+        
+        T1 = allTmon[c][i][0]
+        T2 = allTmon[c][i][1]
+        T3 = allTmon[c][i][2]
+        
+        
+        toa_b1 = S1*(1-alpha1) - (B*(t01-273.15) + A) + co2[c] + (T1 - t01) * fb[i][0]
+        toa_b1 = toa_b1*area1 / (area1+area2+area3)
+        toa_b2 = S2*(1-alpha2) - (B*(t02-273.15) + A) + co2[c] + (T2 - t02) * fb[i][1]
+        toa_b2 = toa_b2*area2 / (area1+area2+area3)
+        toa_b3 = S3*(1-alpha3) - (B*(t03-273.15) + A) + co2[c] + (T3 - t03) * fb[i][2]
+        toa_b3 = toa_b3*area3 / (area1+area2+area3)
+        
+        #linear regression to determine x intercept for each fb (=clim sens)
+        # netTOA = slope*meanT + y-int
+        # climsens = - y-int/slope
+        x0 = sm.add_constant(meanTmon[c][i]) #add column for intercept
+        
+        lr = sm.OLS(toa_b1+toa_b2+toa_b3,x0,missing='drop').fit()
+        yint = lr.params[0]
+        slope = lr.params[1]
+        cs=-yint/slope
+        sens[c].append( cs )
+
+        #add things to zonal dataframe
+        if not (cs>0) & (cs<50):
+            df['Sensitivity'][i] = np.nan
+        else:
+            df['Sensitivity'][i] = cs
+        df['Net Feedback'][i] = slope
+        df['Max Gradient'][i] = np.max(zonalgrad[i])
+        df['Init Gradient'][i] = zonalgrad[i][0]
+        df['Final Gradient'][i] = zonalgrad[i][-1]
+        df['Time of Max Grad'][i] = np.argmax(zonalgrad[i])
+        #thermosat duration 
+        thermdur = np.argmin(np.abs(zonalgrad[i][0] - zonalgrad[i][5:])) + 5
+        if thermdur == 5: #if gradient only increases in strength
+            df['Time of Equal Grad'][i] =  np.nan
+        else:
+            df['Time of Equal Grad'][i] = thermdur
+        
+        #add things to meridional dataframe
+        if not (cs>0) & (cs<50):
+            dfm['Sensitivity'][i] = np.nan
+        else:
+            dfm['Sensitivity'][i] = cs
+        dfm['Net Feedback'][i] = slope
+        dfm['Max Gradient'][i] = np.max(meridgrad[i])
+        dfm['Init Gradient'][i] = meridgrad[i][0]
+        dfm['Final Gradient'][i] = meridgrad[i][-1]
+        dfm['Time of Max Grad'][i] = np.argmax(meridgrad[i])
+        dfm['Time of Equal Grad'][i] = np.argmin(np.abs(meridgrad[i][0] - meridgrad[i][5:])) + 5 
+        
+        
+        #plt.scatter( meanTmon[c][i], toa_b1+toa_b2+toa_b3 ,color = colors[c], s=5)
+        #plt.scatter( sens[c][i],0)
+        #add regression line to visualize x intercept
+        #plt.plot( np.arange(0,30), slope*np.arange(30)+yint, color='grey',linewidth=0.5,alpha=0.6)
+
+#plt.xlabel('Mean T',fontsize=14)
+#plt.ylabel('Net Energy Imbalance (+ down)',fontsize=14)
+#plt.ylim([0,35])
+#plt.xlim([0,30])
+#sens = np.asarray(sens)
+#ecs = np.zeros_like(sens)
+#
+#
+#for i in range(sens.shape[0]):
+#    ecs[i,:] = sens[i,:]/(co2[i]/2**i)
+#
+#for i in range(len(fb)):
+##for c in range(len(co2)):
+##    plt.scatter( np.arange(216), sens[c,:], color=colors[c], s=5)
+#    plt.plot(sens[:,i])
+#plt.xticks(ticks=np.arange(len(co2)))
+#    
+#plt.ylim([0,20])
+#
+#plt.xlabel('Experiment')
+#plt.ylabel('ECS [C]')
+#%%
+# PLOTS USING THE DATAFRAME
+
+# y as function of box feedback params
+# select only rows with data
+
+# notes: max gradient - controlled solely by box 1
+#        time of max gradient - controlled mostly by box 1
+#        sensitivity is controlled mostly by box 3, likely due to large size
+#        net feedback mostly controlled by box 3, definitely due to size
+#        time to return to init grad is sensitive to outliers!
+#        final gradient controlled mostly by box 1, could be due to unrealistic pos params though
+
+
+var = 'Sensitivity'
+isdata = np.where(df[var].notnull())[0]
+marks=['o','x','^']
+offset=[-0.1,0.,0.1]
+labels=['fb1-fb3','fb2-fb1','fb3-fb2']
+
+#plot 3 times
+for f in range(3):
+    
+    #individual regional fb params
+    x = np.asarray( [ i[f] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+    #differences of regional fb params
+    #x = np.asarray( [ i[f]-i[f-1] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+    y = df[var].iloc[isdata]
+    
+    #regression to determine linear fit
+    x0 = sm.add_constant(x) #add column for intercept
+            
+    lr = sm.OLS(y,x0,missing='drop').fit()
+    
+    plt.scatter( x+offset[f], y , marker=marks[f], label = f"{labels[f]} {lr.rsquared.round(decimals=3)}")
+    
+#meridional gradient as predictor
+#x = np.asarray( [ (i[0]+i[1])/2 - i[2] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+#y = df[var].iloc[isdata]
+
+#regression to determine linear fit
+#x0 = sm.add_constant(x) #add column for intercept
+#        
+#lr = sm.OLS(y,x0,missing='drop').fit()
+#
+#plt.scatter( x, y , label = f"(fb1+fb2)/2 - fb3 {lr.rsquared.round(decimals=3)}")
+    
+plt.ylabel(var,fontsize=13)
+plt.xlabel('Feedback parameter',fontsize=13)
+plt.legend()
+#%% calculate effective clim sens (clim sens as estimated via lin reg at the current time)
+###  
+
+
+colors = ['tab:blue','tab:orange','tab:red']
+sens = []
+co2 = [4]
+
+#for each co2 forcing
+for c in range(len(co2)): 
+    
+    zonalgrad = [ allTmon[c][i][0] - allTmon[c][i][1] for i in range(len(allTmon[exp])) ]
+    effcs = np.zeros( (allTmon[0].shape[0],allTmon[0].shape[2]) ) #effective cs for each fb, at each time
+    
+    for f in range(len(fb)): # for each feedback
+    
+        for t in range(2, allTmon[0].shape[2]): # for each timestep starting at 2nd
+            
+            T1 = allTmon[c][f,0,:t]
+            T2 = allTmon[c][f,1,:t]
+            T3 = allTmon[c][f,2,:t]
+            
+            
+            toa_b1 = S1*(1-alpha1) - (B*(t01-273.15) + A) + co2[c] + (T1 - t01) * fb[f][0]
+            toa_b1 = toa_b1*area1 / (area1+area2+area3)
+            toa_b2 = S2*(1-alpha2) - (B*(t02-273.15) + A) + co2[c] + (T2 - t02) * fb[f][1]
+            toa_b2 = toa_b2*area2 / (area1+area2+area3)
+            toa_b3 = S3*(1-alpha3) - (B*(t03-273.15) + A) + co2[c] + (T3 - t03) * fb[f][2]
+            toa_b3 = toa_b3*area3 / (area1+area2+area3)
+            
+            #linear regression to determine x intercept for each fb (=clim sens)
+            # netTOA = slope*meanT + y-int
+            # climsens = - y-int/slope
+            x0 = sm.add_constant(meanTmon[c][f][:t]) #add column for intercept
+            
+            lr = sm.OLS(toa_b1+toa_b2+toa_b3,x0,missing='drop').fit()
+            yint = lr.params[0]
+            slope = lr.params[1]
+            
+            effcs[f,t] = -yint/slope
+ 
+#%% plot eff cs as function of sst gradient
+colors=['tab:blue','tab:orange','tab:green','tab:red']
+            
+#choose specific fb            
+for f in range(len(fb)):
+    #if  (fb[f][0]<-2) & (fb[f][1]==fb[f][0]) & (fb[f][2]>-2) &( (np.max(effcs[f,:])<20) & (np.max(effcs[f,:])>0) ):   
+    if (fb[f][0]==-4):
+        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[0])
+    if (fb[f][0]==-3):
+        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[1])
+    if (fb[f][0]==-2):
+        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[2])
+    if (fb[f][0]==-1):
+        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[3])
+        #plt.scatter( zonalgrad[f][::12], effcs[f,::12],marker='*')
+
+plt.legend()
+plt.xlabel('Zonal SST Gradient', fontsize=14)
+plt.ylabel('effective equilibrium CS',fontsize=14)  
+plt.ylim([0,30])      
+        
+    
+    
