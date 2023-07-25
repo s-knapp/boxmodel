@@ -16,7 +16,7 @@ import statsmodels.api as sm
 ################### PARAMETERS ###########################
 ##########################################################
 
-timesteps=6000*50 #second number is total years
+timesteps=6000*200 #second number is total years
 dt=5256 #seconds, 1/6000 of year
 print(f"timestep dt ={dt/60:.2f} minutes")
 totaltime=timesteps*dt
@@ -31,7 +31,7 @@ epsilon = 0.48 # ratio of flow out
 M1=6.8e14 #m3, vol of box 1
 M2=6.8e14 #m3, vol of box 2
 M3=4e15 #m3, vol of box 3
-M4=8e15 #m3, vol of box 4
+M4=8e15 #8e15 #m3, vol of box 4
 Aw=1e6  #m3/(s K) walker coupling param
 Ah=4e6  #m3/(s K) hadley coupling param
 h1=50 #m, depth of box 1
@@ -58,7 +58,7 @@ A = 214 # W/m2
 gamma = 3.3 # W/m2 / K
 
 #CO2 FORCING AS A CONSTANT EVERYWHERE
-co2 = [4,8,16] #w/m2
+co2 = [4] #w/m2 4~2xCO2, 8~4xCO2, 12~8xCO2
 
 #the following based on CERES data calculated in ceres.py
 #to find range of alphas, use extreme values from all ceres data?
@@ -225,16 +225,16 @@ for i in np.arange(fb_low,fb_high+step,step):
 
 #fb=[[0,0,0]]
 
-fb_mult=True #make this true to use the mult feedbacks below
+fb_mult=False #make this true to use the mult feedbacks below
 #feedback with west influence: [box1,(box2,box1-box2),(box3,box1-box3)]
 # fb from gradient seems to have lagged effect
 # for box1-box2, lag is 1 month
 # for box1-box3, lag is 4 months
-fb=[
-    [-4.0,(-3.0,-1.2),(-1.0,-0.5)]
-    ]
+#fb=[
+#    [-4.0,(-3.0,-1.2),(-1.0,-0.5)]
+#    ]
 
-# agcm fixes ocean temps and transport at 0
+# agcm fixes ocean temps at initial and transport at 0
 # slab ocean has free temps and transport fixed at equilibrium vals
 agcm = False
 slab = False
@@ -303,7 +303,7 @@ for c in range(len(co2)): #for each co2 forcing
             # 
         #    alpha2 =  logi(T1,T2)
             
-            if not fb_mult:
+            if not fb_mult: #single regional feedback parameter
                 #local feedback: (Tnow - T0) * lambda
                 fb2 = (T2 - t02) * fb[i][1]
             else:
@@ -391,16 +391,16 @@ for c in range(len(co2)): #for each co2 forcing
             dT2=T2-t2[0]
             dT3=T3-t3[0]
                 
-            #if (t+1)%3000==0: #write out data twice a year
-            t1.append(T1)
-            t2.append(T2)
-            t3.append(T3)
-            t4.append(T4)
-            
-            ot[0].append(ocean1)
-            ot[1].append(ocean2)
-            ot[2].append(ocean3)
-            ot[3].append(ocean4)
+            if (t+1)%500==0: #write out data every 1/12 of a year
+                t1.append(T1)
+                t2.append(T2)
+                t3.append(T3)
+                t4.append(T4)
+                
+                ot[0].append(ocean1)
+                ot[1].append(ocean2)
+                ot[2].append(ocean3)
+                ot[3].append(ocean4)
                     
         t1=np.asarray(t1)
         t2=np.asarray(t2)
@@ -428,8 +428,8 @@ for c in range(len(co2)): #for each co2 forcing
 
 #%% write out data
     
-#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.meanT.npy',np.asarray(meanT))
-#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.allT.npy',np.asarray(allT))
+#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.4wm2.meanT.200.npy',np.asarray(meanT))
+#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.4wm2.allT.200.npy',np.asarray(allT))
 
 #%% #########################################################################################
 ################ PLOTS - EVERYTHING BELOW HERE ARE VARIOUS PLOTS ############################
@@ -437,7 +437,8 @@ for c in range(len(co2)): #for each co2 forcing
 
 exps=[str(fb[i]) for i in range(len(fb))]
 cmap = plt.get_cmap('jet')
-expcols=cmap(np.linspace(0,1,len(fb)))#['tab:blue','tab:orange','tab:green','tab:purple']
+expcols=cmap(np.linspace(0,1,len(fb)))#
+expcols=['tab:blue','tab:orange','tab:green','tab:purple']
 
 plt.figure(0)
 expnum=len(allT)
@@ -447,13 +448,13 @@ plt.title('Eq Gradient T1-T2')
 plt.ylabel('T1-T2')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
-plt.legend(exps)
+plt.legend(['6e15','8e15','12e15'])
 
 ############
 plt.figure(1)
 plt.title("Temperatures")
 expnum=len(allT)
-for i in range(expnum):
+for i in range(1):
     plt.plot(allT[i][0],color=expcols[i],label=exps[i])
     plt.plot(allT[i][1],color=expcols[i])
     plt.plot(allT[i][2],color=expcols[i])
@@ -566,11 +567,11 @@ plt.legend()
 #%% OPEN AND PLOT SENSITIVITY RUNS
 
 meanT=[]
-meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.4wm2.meanT.npy') )
+meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.4wm2.meanT.200.npy') )
 meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.8wm2.meanT.npy') )
 meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.meanT.npy') )
 allT=[]
-allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.4wm2.allT.npy') )
+allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.4wm2.allT.200.npy') )
 allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.8wm2.allT.npy') )
 allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.allT.npy') )
 
@@ -581,12 +582,18 @@ allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16
 #    
 meanTmon=[]
 for i in range(len(meanT)):
-    meanTmon.append( np.asarray( [monmean(meanT[i][j,:]) for j in range(len(meanT[i]))] ) )
+    if i==0: #fpr new longer files
+        meanTmon.append( meanT[0])
+    else:
+        meanTmon.append( np.asarray( [monmean(meanT[i][j,:]) for j in range(len(meanT[i]))] ) )
 allTmon = []
 for i in range(len(meanT)):
-    allTmon.append( np.zeros(shape=(allT[i].shape[0],4,int(years*12))) )
-    for box in range(4):
-        allTmon[i][:,box,:] = np.asarray( [monmean(allT[i][j,box,:]) for j in range(len(allT[i]))] )
+    if i==0:
+        allTmon.append(allT[0])
+    else:
+        allTmon.append( np.zeros(shape=(allT[i].shape[0],4,int(50*12))) )
+        for box in range(4):
+            allTmon[i][:,box,:] = np.asarray( [monmean(allT[i][j,box,:]) for j in range(len(allT[i]))] )
 #import mpltern
 
 
@@ -622,7 +629,7 @@ fbb2 = np.asarray( [fb[i][1] for i in range(len(fb))] )
 #box3
 fbb3 = np.asarray( [fb[i][2] for i in range(len(fb))] ) 
 
-values = np.asarray( [meanT[i][-1] for i in range(len(fb))] )
+values = np.asarray( [meanT[0][i][-1] for i in range(len(fb))] )
 
 plt.scatter(fbb1-0.1,values,label='Box 1',marker='x')
 plt.scatter(fbb2,values,label='Box 2',marker='x')
@@ -703,8 +710,8 @@ cols = ['tab:blue','tab:orange','tab:red']
 x=[]
 y=[]
 for exp in range(3):
-    zgradient = allT[exp][0][-1] - allT[exp][1][-1]
-    mgradient = (allT[exp][0][-1] + allT[exp][1][-1])/2 - allT[exp][2][-1]
+    zgradient = allTmon[exp][:][0][-1] - allTmon[exp][:][1][-1]
+    mgradient = (allTmon[exp][:][0][-1] + allTmon[exp][:][1][-1])/2 - allTmon[exp][:][2][-1]
     y.append(zgradient)
     x.append(mgradient)
     plt.scatter(mgradient,zgradient,color=cols[exp],marker=marks[exp])
@@ -837,7 +844,7 @@ axs = fig.add_subplot()
 #discrete colorbar for line color
 cmap = plt.cm.get_cmap('plasma', 15)
 norm = BoundaryNorm(np.logspace(
-        np.log10( 1.0), np.log10(np.max(meanTmon[exp])),num=15), 
+        np.log10( 1.0), np.log10(20),num=15), #np.max(meanTmon[exp])
             15)
 
 #discrete colorbar for feedbacks
@@ -859,24 +866,39 @@ for i in range(216):
     line = axs.add_collection(lc)
     
     #plot markers indicating the feedback param in each box
-    plt.scatter( zonalgrad[i][-1], meridgrad[i][-1], marker="s", c=fb[i][0], 
+    # many reach equil and bunch up all points, while some don't, need way to consistently assign scatters
+    spacing=0.1
+    x1 = zonalgrad[i][-1]
+    x2i = np.argmin( np.abs(zonalgrad[i][:] - (x1 + spacing) ) )
+    x2 = zonalgrad[i][x2i]
+    x3i = np.argmin( np.abs(zonalgrad[i][:] - (x2 + spacing) ) )
+    x3 = zonalgrad[i][x3i]
+    y1 = meridgrad[i][-1]
+    y2 = meridgrad[i][x2i]
+    y3 = meridgrad[i][x3i]
+    plt.scatter( x1, y1, marker="s", c=fb[i][0], 
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
-    plt.scatter( zonalgrad[i][-40], meridgrad[i][-40], marker="^", c=fb[i][1], 
+    plt.scatter( x2, y2, marker="^", c=fb[i][1], 
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
-    plt.scatter( zonalgrad[i][-80], meridgrad[i][-80], marker="o", c=fb[i][2], 
+    plt.scatter( x3, y3, marker="o", c=fb[i][2], 
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
  
 
-#axs.set_xlim((0.5,3.5))  
-#axs.set_ylim((5.9,7.1))
+axs.set_xlim((0.3,3.5))  
+axs.set_ylim((5.9,7.2))
 fig.colorbar(line, ax=axs,label='mean T')   
 axs.set_xlabel('zonal gradient',fontsize=14)
 axs.set_ylabel('meridional gradient',fontsize=14)
 axs.set_facecolor('grey')
 
-plt.scatter(allT[exp][i][0][0] - allT[exp][i][1][0],(allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0],
-                marker='*',s=50,color='red',zorder=10)
+#plot * at initial value (same for all)
+x0 = allT[exp][i][0][0] - allT[exp][i][1][0]
+y0 = (allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0]
+plt.scatter(x0, y0, marker='*',s=50,color='red',zorder=10)
 
+# draw lines through initial point to divide into quadrants
+plt.hlines(y0, xmin = 0.3, xmax= 3.5, linestyle = '--', color = 'black', alpha=0.7)
+plt.vlines(x0, ymin = 5.9, ymax= 7.2, linestyle = '--', color = 'black', alpha=0.7)
 
 
 legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1',
@@ -891,6 +913,125 @@ axs.legend(handles=legend_elements, loc='upper right')
 
 #fig.savefig('gradsandtemp.png')
 #plt.close(fig)
+#%% HISTOGRAM OF FB PARAMS IN FOUR QUADRANTS FROM ABOVE PLOT
+# Notes about results of this plot:
+# quad 1: more pos box 2 warms box 2, weakens zonal, while more neg box 3 cools box 3, strengthens merid
+# quad 2: more pos box 1 warms box 1, strengthen zonal, while more neg box 3 cools box 3, strengthens merid
+# quad 3: more neg box 1 cools box 1, weakens zonal, while more pos box 3 warms box 3, weakens merid
+# quad 4: more neg box 2 cools box 2, strengthen zonal, more pos box 1 warms box 1, also strengthen zonal
+
+zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
+meridgrad = [ (allTmon[exp][i][0]+allTmon[exp][i][1])/2 - allTmon[exp][i][2] for i in range(len(allTmon[exp])) ]
+
+x0 = allT[exp][0][0][0] - allT[exp][0][1][0]
+y0 = (allT[exp][0][0][0]+allT[exp][0][1][0])/2 - allT[exp][0][2][0]
+
+#quad 1: x<x0, y>y0. quad 2: x>x0, y>y0. quad 3: x<x0, y<y0. quad 4: x>x0, y<y0
+titles=['Zonal weaken & Merid strengthen','Zonal strengthen & Merid strengthen',
+        'Zonal weaken & Merid weaken','Zonal strengthen & Merid weaken']
+quads = [ [], [], [], [] ]
+for i in range(len(zonalgrad)):
+    if (zonalgrad[i][-1] < x0) & (meridgrad[i][-1] > y0):
+        quads[0].append(fb[i])
+    elif (zonalgrad[i][-1] > x0) & (meridgrad[i][-1] > y0):
+        quads[1].append(fb[i])
+    elif (zonalgrad[i][-1] < x0) & (meridgrad[i][-1] < y0):
+        quads[2].append(fb[i])
+    elif (zonalgrad[i][-1] > x0) & (meridgrad[i][-1] < y0):
+        quads[3].append(fb[i])
+
+fig, ax = plt.subplots(nrows=2,ncols=2,figsize=(6,5))
+ax = ax.flatten()
+for i in range(4): # for each quadrant
+    #value of each fb param in quad[i]
+    fb1quad = [ quads[i][j][0] for j in range(len(quads[i]))]
+    fb2quad = [ quads[i][j][1] for j in range(len(quads[i]))]
+    fb3quad = [ quads[i][j][2] for j in range(len(quads[i]))]
+    
+    #create stats about relative param strengths, 9 possibilities
+    arr = np.zeros((3,3))
+#    zonalstr=0 ; zonaleq=0 ; zonalweak=0  
+#    meridstr = 0 ; merideq=0 ; meridweak = 0
+    for j in range(len(fb1quad)):
+        if (fb1quad[j] > fb2quad[j]): # if box 1 param > box 2 param, col 1
+            if fb3quad[j] < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop row 1
+                arr[2,0] +=1
+            elif fb3quad[j] == np.mean([fb1quad[j],fb2quad[j]]): #row 2
+                arr[1,0] +=1
+            else: #row 3
+                arr[0,0] +=1
+        elif fb1quad[j] == fb2quad[j]: #col 2
+            if fb3quad[j] < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
+                arr[2,1] +=1
+            elif fb3quad[j] == np.mean([fb1quad[j],fb2quad[j]]):
+                arr[1,1] +=1
+            else:
+                arr[0,1] +=1
+        elif (fb1quad[j] < fb2quad[j]): # if box 3 param > avg of box1&2 col 3
+            if fb3quad[j] < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
+                arr[2,2] +=1
+            elif fb3quad[j] == np.mean([fb1quad[j],fb2quad[j]]):
+                arr[1,2] +=1
+            else:
+                arr[0,2] +=1
+   
+    arr = arr/len(fb1quad) * 100
+    
+    # create discrete colormap
+    cmap = plt.cm.get_cmap('Reds', 10)
+    norm = BoundaryNorm(np.linspace(0,100,10), ncolors=10)
+    
+    # plot colored grid
+    ax[i].imshow(arr, cmap=cmap,norm=norm)
+    
+    # draw gridlines
+    #ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=2)
+    ax[i].set_xticks(np.arange(0, 3, 1))
+    ax[i].set_xticklabels(['West>East','West=East','West<East'])
+    ax[i].set_yticks(np.arange(0, 3, 1))
+    ax[i].set_yticklabels(['ExTrop>Trop','ExTrop=Trop','ExTrop<Trop'])
+    
+    #add text of number in each grid
+    for row in range(3):
+        for col in range(3):
+            ax[i].annotate(f"{arr[row,col].round(decimals=1)}%", (col-0.1,row+0.05),weight='bold')
+        
+        
+#    pltx = np.arange(-4,2)
+#    ax[i].bar(pltx-0.1,np.histogram(fb1quad,bins=6,range=(-4,1))[0], label='box 1',width=0.1)
+#    ax[i].bar(pltx, np.histogram(fb2quad,bins=6,range=(-4,1))[0], label='box 2',width=0.1)
+#    ax[i].bar(pltx+0.1, np.histogram(fb3quad,bins=6,range=(-4,1))[0], label='box 3',width=0.1)
+#    
+#    ax[i].annotate(f"Zonal Params Strengthen = {np.round(zonalstr/len(fb1quad),decimals=1) * 100}%",(-2.5,28))
+#    ax[i].annotate(f"Zonal Params Weaken = {np.round(zonalweak/len(fb1quad),decimals=1) * 100}%",(-2.5,26.5))
+#    ax[i].annotate(f"Merid Params Strengthen = {np.round(meridstr/len(fb1quad),decimals=1) * 100}%",(-2.5,25))
+#    ax[i].annotate(f"Merid Params Weaken = {np.round(meridweak/len(fb1quad),decimals=1) * 100}%",(-2.5,23.5))
+#    
+#    if i==0:
+#        ax[i].legend()
+    ax[i].set_title(titles[i])
+#plt.tight_layout()
+#    ax[i].set_ylim([0,31])
+#fig.suptitle('R')
+#%% colored grid of relative strengths of fb params
+    
+from matplotlib import colors
+
+data = np.random.rand(3, 3) * 100
+
+# create discrete colormap
+cmap = plt.cm.get_cmap('Reds', 10)
+norm = BoundaryNorm(np.arange(0,101,10), 10)
+
+fig, ax = plt.subplots()
+ax.imshow(data, cmap=cmap, norm=norm)
+
+# draw gridlines
+#ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=2)
+ax.set_xticks(np.arange(0, 3, 1))
+ax.set_xticklabels(['West>East','West=East','West<East'])
+ax.set_yticks(np.arange(0, 3, 1))
+ax.set_yticklabels(['ExTrop>Trop','ExTrop=Trop','ExTrop<Trop'])
 
 #%% ENERGY BALANCE - FIXED SW/LW + CO2 + FB*T
 # MAKE DATAFRAME OF CHARACTERISTICS OF GRADIENTS/SENSITIVITIES
@@ -1009,19 +1150,21 @@ for c in range(len(co2)):
 #        final gradient controlled mostly by box 1, could be due to unrealistic pos params though
 
 
-var = 'Sensitivity'
+var = 'Final Gradient'
 isdata = np.where(df[var].notnull())[0]
 marks=['o','x','^']
 offset=[-0.1,0.,0.1]
-labels=['fb1-fb3','fb2-fb1','fb3-fb2']
+
 
 #plot 3 times
 for f in range(3):
     
     #individual regional fb params
-    x = np.asarray( [ i[f] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+#    x = np.asarray( [ i[f] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+#    labels=['fb1','fb2','fb3']
     #differences of regional fb params
-    #x = np.asarray( [ i[f]-i[f-1] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+    x = np.asarray( [ i[f]-i[f-1] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+    labels=['fb1-fb3','fb2-fb1','fb3-fb2']
     y = df[var].iloc[isdata]
     
     #regression to determine linear fit
@@ -1093,19 +1236,104 @@ colors=['tab:blue','tab:orange','tab:green','tab:red']
 for f in range(len(fb)):
     #if  (fb[f][0]<-2) & (fb[f][1]==fb[f][0]) & (fb[f][2]>-2) &( (np.max(effcs[f,:])<20) & (np.max(effcs[f,:])>0) ):   
     if (fb[f][0]==-4):
-        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[0])
+        plt.scatter( zonalgrad[f], effcs[f,:],s=3,label=fb[f],color=colors[0])
     if (fb[f][0]==-3):
-        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[1])
+        plt.scatter( zonalgrad[f], effcs[f,:],s=3,label=fb[f],color=colors[1])
     if (fb[f][0]==-2):
-        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[2])
+        plt.scatter( zonalgrad[f], effcs[f,:],s=3,label=fb[f],color=colors[2])
     if (fb[f][0]==-1):
-        plt.scatter( zonalgrad[f], effcs[f,:],s=5,label=fb[f],color=colors[3])
+        plt.scatter( zonalgrad[f], effcs[f,:],s=3,label=fb[f],color=colors[3])
         #plt.scatter( zonalgrad[f][::12], effcs[f,::12],marker='*')
 
-plt.legend()
+#plt.legend()
 plt.xlabel('Zonal SST Gradient', fontsize=14)
 plt.ylabel('effective equilibrium CS',fontsize=14)  
-plt.ylim([0,30])      
+plt.ylim([0,30])     
+plt.xlim([1.5,2.75]) 
+
+#legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1',
+#                          markerfacecolor='black', markersize=10),
+#                   Line2D([0], [0], marker='^', lw=0, label='Box 2',
+#                          markerfacecolor='black', markersize=10),
+#                   Line2D([0], [0], marker='o', lw=0, label='Box 3',
+#                          markerfacecolor='black', markersize=10)
+#                   ]
+#axs.legend(handles=legend_elements, loc='upper right')
         
     
     
+#%% meridional vs zonal T gradient
+# lines colored by effCS at time
+# feedback params of three boxes given as color of scatters at end of line
+
+from matplotlib.collections import LineCollection
+from matplotlib.colors import BoundaryNorm
+from matplotlib.lines import Line2D
+
+exp=0 #co2 amount, 0,1,2=2x,4x,8x
+
+zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
+meridgrad = [ (allTmon[exp][i][0]+allTmon[exp][i][1])/2 - allTmon[exp][i][2] for i in range(len(allTmon[exp])) ]
+
+fig = plt.figure(figsize=(7,7))
+axs = fig.add_subplot()
+
+#normalize to the min and max of all data, continuous colorbar
+#norm = plt.Normalize(np.min(meanTmon), np.max(meanTmon))
+
+#discrete colorbar for line color
+cmap = plt.cm.get_cmap('plasma', 15)
+norm = BoundaryNorm(np.linspace(
+        1, 20,num=15), 
+            15)
+
+#discrete colorbar for feedbacks
+cmapfb = plt.cm.get_cmap('bwr', 6)
+normfb = BoundaryNorm(np.arange(-4,2,1), 6)
+
+for i in range(216):
+    
+    #this is a method for coloring the line by dividing it into
+    #segments, each of which is colored individually
+    #by providing a universal colorbar scale from the "norm" above,
+    #all lines will use the same colorbar
+    points = np.array([ zonalgrad[i], meridgrad[i] ]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    lc = LineCollection(segments, cmap=cmap, norm=norm,alpha=0.8)
+    # Set the values used for colormapping
+    lc.set_array(effcs[i,1:])
+    lc.set_linewidth(2)
+    line = axs.add_collection(lc)
+    
+    #plot markers indicating the feedback param in each box
+    plt.scatter( zonalgrad[i][-1], meridgrad[i][-1], marker="s", c=fb[i][0], 
+                cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
+    plt.scatter( zonalgrad[i][-40], meridgrad[i][-40], marker="^", c=fb[i][1], 
+                cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
+    plt.scatter( zonalgrad[i][-80], meridgrad[i][-80], marker="o", c=fb[i][2], 
+                cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
+ 
+
+#axs.set_xlim((0.5,3.5))  
+#axs.set_ylim((5.9,7.1))
+fig.colorbar(line, ax=axs,label='eff CS')   
+axs.set_xlabel('zonal gradient',fontsize=14)
+axs.set_ylabel('meridional gradient',fontsize=14)
+axs.set_facecolor('grey')
+
+plt.scatter(allT[exp][i][0][0] - allT[exp][i][1][0],(allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0],
+                marker='*',s=50,color='red',zorder=10)
+
+
+
+legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1',
+                          markerfacecolor='black', markersize=10),
+                   Line2D([0], [0], marker='^', lw=0, label='Box 2',
+                          markerfacecolor='black', markersize=10),
+                   Line2D([0], [0], marker='o', lw=0, label='Box 3',
+                          markerfacecolor='black', markersize=10)
+                   ]
+axs.legend(handles=legend_elements, loc='upper right')
+
+axs.set_ylim([6.3,7.05])
+axs.set_xlim([1.8,3])
