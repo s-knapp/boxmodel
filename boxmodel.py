@@ -914,6 +914,7 @@ axs.legend(handles=legend_elements, loc='upper right')
 #fig.savefig('gradsandtemp.png')
 #plt.close(fig)
 #%% HISTOGRAM OF FB PARAMS IN FOUR QUADRANTS FROM ABOVE PLOT
+# BUT ACTUALLY COLORED GRIDS OF RELATIVE FB PARAM STRENGTHS ZONAL/MERID
 # Notes about results of this plot:
 # quad 1: more pos box 2 warms box 2, weakens zonal, while more neg box 3 cools box 3, strengthens merid
 # quad 2: more pos box 1 warms box 1, strengthen zonal, while more neg box 3 cools box 3, strengthens merid
@@ -940,7 +941,7 @@ for i in range(len(zonalgrad)):
     elif (zonalgrad[i][-1] > x0) & (meridgrad[i][-1] < y0):
         quads[3].append(fb[i])
 
-fig, ax = plt.subplots(nrows=2,ncols=2,figsize=(6,5))
+fig, ax = plt.subplots(nrows=2,ncols=2,figsize=(8,7))
 ax = ax.flatten()
 for i in range(4): # for each quadrant
     #value of each fb param in quad[i]
@@ -994,7 +995,7 @@ for i in range(4): # for each quadrant
     #add text of number in each grid
     for row in range(3):
         for col in range(3):
-            ax[i].annotate(f"{arr[row,col].round(decimals=1)}%", (col-0.1,row+0.05),weight='bold')
+            ax[i].annotate(f"{arr[row,col].round(decimals=1)}%", (col-0.15,row+0.05),weight='bold')
         
         
 #    pltx = np.arange(-4,2)
@@ -1013,25 +1014,75 @@ for i in range(4): # for each quadrant
 #plt.tight_layout()
 #    ax[i].set_ylim([0,31])
 #fig.suptitle('R')
-#%% colored grid of relative strengths of fb params
+#%% equil mean T as function of zonal/merid grad
     
-from matplotlib import colors
+zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
+meridgrad = [ (allTmon[exp][i][0]+allTmon[exp][i][1])/2 - allTmon[exp][i][2] for i in range(len(allTmon[exp])) ]
 
-data = np.random.rand(3, 3) * 100
+#for i in range(len(zonalgrad)):
+#    plt.scatter( zonalgrad[i][-1], meanTmon[0][i][-1])
+#plt.xlim( (0,4) )
+#plt.ylim( (0,20) )
 
-# create discrete colormap
-cmap = plt.cm.get_cmap('Reds', 10)
-norm = BoundaryNorm(np.arange(0,101,10), 10)
+#plt.figure()
+#for i in range(len(meridgrad)):
+#    plt.scatter( meridgrad[i][-1], meanTmon[0][i][-1])
+#plt.xlim( (4.5,7.6) )
+#plt.ylim( (0,20) )
 
-fig, ax = plt.subplots()
-ax.imshow(data, cmap=cmap, norm=norm)
+#there are some clear linear-ish structures in here
 
-# draw gridlines
-#ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=2)
-ax.set_xticks(np.arange(0, 3, 1))
-ax.set_xticklabels(['West>East','West=East','West<East'])
-ax.set_yticks(np.arange(0, 3, 1))
-ax.set_yticklabels(['ExTrop>Trop','ExTrop=Trop','ExTrop<Trop'])
+cmap = plt.get_cmap('rainbow')(np.linspace(0,1, 36))
+
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+c=0
+six=0
+#empty lists for regression
+x1=[]
+x2=[]
+y=[]
+#draw a line through each set as well
+for i in range(len(zonalgrad)-41): #excluding some of the later fb combos that explode and ruin the plot
+    if c==6: #each pair of box1/2 params has 6 vals of box 3, so after 6 do OLS and reset
+        #OLS
+        X = np.column_stack((x1,x2,np.ones(len(x1))))
+        y=np.asarray(y)
+        coefs = np.linalg.lstsq(X,y,rcond=None)[0]
+#        z_pred = coefs[0]*np.linspace(0,4,50) + coefs[1]*np.linspace(4.5,7.5,50)+coefs[2]
+        z_pred=coefs[0]*np.linspace(min(X[:,0]),max(X[:,0]),50) + coefs[1]*np.linspace(min(X[:,1]),max(X[:,1]),50) + coefs[2]
+        ax.plot(np.linspace(min(X[:,0]),max(X[:,0]),50), np.linspace(min(X[:,1]),max(X[:,1]),50),z_pred,color=cmap[six])
+#        ax.plot(X[:,0], X[:,1],z_pred,color=cmap[six])
+        
+        #reset for new pairs
+        six+=1
+        c=0
+        x1=[]
+        x2=[]
+        y=[]
+    #append data for OLS
+    x1.append(zonalgrad[i][-1])
+    x2.append(meridgrad[i][-1])
+    y.append(meanTmon[0][i][-1])
+    
+    ax.scatter( zonalgrad[i][-1], meridgrad[i][-1], meanTmon[0][i][-1], color=cmap[six])
+    c+=1
+    
+    if i==( len(zonalgrad)-1): #if at last step, do OLS and plot
+        X = np.column_stack((x1,x2,np.ones(len(x1))))
+        y=np.asarray(y)
+        coefs = np.linalg.lstsq(X,y,rcond=None)[0]
+        z_pred = coefs[0]*np.linspace(0,4,50) + coefs[1]*np.linspace(4.5,7.5,50)+coefs[2]
+        ax.plot(np.linspace(0,4,50), np.linspace(4.5,7.5,50),z_pred,color=cmap[six])
+    
+ax.set_zlim([0,20])
+ax.set_xlim([0,4])
+ax.set_ylim([4.5,7.5])
+ax.set_xlabel('Zonal grad')
+ax.set_ylabel('Meridional grad')
+ax.set_zlabel('Mean T')
+    
+
 
 #%% ENERGY BALANCE - FIXED SW/LW + CO2 + FB*T
 # MAKE DATAFRAME OF CHARACTERISTICS OF GRADIENTS/SENSITIVITIES
