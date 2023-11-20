@@ -16,7 +16,7 @@ import statsmodels.api as sm
 ################### PARAMETERS ###########################
 ##########################################################
 
-timesteps=6000*200 #second number is total years
+timesteps=6000*150 #second number is total years
 dt=5256 #seconds, 1/6000 of year
 print(f"timestep dt ={dt/60:.2f} minutes")
 totaltime=timesteps*dt
@@ -28,17 +28,17 @@ rhoair = 1.225 # kg/m3 dens of air
 p_air=100000 # Pa air pressure
 
 epsilon = 0.48 # ratio of flow out
-M1=3e14#6.8e14 #m3, vol of box 1 (west)
-M2=3e14#6.8e14 #m3, vol of box 2 (east)
-M3=4.5e15 #m3, vol of box 3  (north) 
-M4=4.3e15 #m3, vol of box 4 (south)
+M1=7.8e14 #4.9e14 #3e14 6.8e14 #m3, vol of box 1 (west)
+M2=3.2e14 #7.8e14 #4.9e14 #3e14#6.8e14 #m3, vol of box 2 (east)
+M3=6.6e15 #4.5e15 #m3, vol of box 3  (north) 
+M4=5.7e15 #4.3e15 #m3, vol of box 4 (south)
 #for 20-50N 160-240E =24031081172332.445*200=4806216234466489.0 ~ 4.8e15m3
 #was using 4e15
-M5=4e15 #9.6e15 #8e15 #m3, vol of box 5 (undercurrent) might need to be ~4e15?
-Aw=1e6  #m3/(s K) walker coupling param
-Ah=4e6  #m3/(s K) hadley coupling param
+M5=3.7e16 #9.5e15 #4e15 #9.6e15 #8e15 #m3, vol of box 5 (undercurrent)
+Aw=1e3  #m3/(s K) walker coupling param
+Ah=2e6 #4e6  #m3/(s K) hadley coupling param
 h1=50 #m, depth of box 1
-h2=50 #m, depth of box 2
+h2=20 #50 #m, depth of box 2
 h3=200 #m, depth of box 3
 h4=200 #m, depth of box 5
 
@@ -50,15 +50,15 @@ RH=0.8; # relative humidity in tropics
 RHet=0.7 # relative humidity in ex tropics? probably not, looks the same
 epsil=0.622; # ration of mass or vapour to dry air
 mse_gamma = 0.001581 # W/m2 / J/kg
-mse_gamma_w = 0.001581 #all these custom regression mse do not work well. they are now manually set
-mse_gamma_e = 0.001581
-mse_gamma_n = 0.001581
-mse_gamma_s = 0.001581
+mse_gamma_w = 0.001581 #0.005294 #all these custom regression mse do not work well. they are now manually set
+mse_gamma_e = 0.001581 #0.006529 #0.001581
+mse_gamma_n = 0.001581 #0.002115 #0.001581
+mse_gamma_s = 0.001581 #0.001724 #0.001581 #
 mse_int = -9.56 #-9.56 #intercept for mse regression
-mse_int_w = 25
-mse_int_e = 19
-mse_int_n = -26
-mse_int_s = -36
+mse_int_w = -15 #-7 #43.12 #-7
+mse_int_e = -23 #-9 #56.26 #-11
+mse_int_n = -44 #-36.79 #-47#-26
+mse_int_s = -51 #-38.1 #-54#-36
 #regression done on Cheyenne notebook mse_aht_regression.ipynb
 #used only 65S-65N
 
@@ -66,30 +66,27 @@ mse_int_s = -36
 # shortwave in = S(1-alpha)
 # TOA OLR = BT + A
 B = 1.7 # W/m2 / C
-Bwest = -0.33
-Beast = -2.79
-Bnorth = -0.98
-Bsouth = -4.2
+Bwest = -16.73 #-0.33
+Beast = -6.80 #-2.79
+Bnorth = 2.10 #-0.98
+Bsouth = 2.74 #-4.2
 
 A = 214 # W/m2
-Awest = 214.11
-Aeast = 346.18
-Anorth = 259.78
-Asouth = 348.36
+Awest = 729.92 #214.11
+Aeast = 453.8 #346.18
+Anorth = 206.1 #259.78
+Asouth = 202.12 #348.36
 
 # atmos convergence = gamma(Tmean - T)
 gamma = 3.3 # W/m2 / K
 
-#CO2 FORCING AS A CONSTANT EVERYWHERE
-co2 = [8] #w/m2 4~2xCO2, 8~4xCO2, 12~8xCO2
-
 #the following based on CERES data calculated in ceres.py
 #to find range of alphas, use extreme values from all ceres data?
 #boxes used for ceres radiation data: 
-#               1: 5-5N/S 110-160  2: 5-5N/S 230-280   3: 30-60??? trying 20-50  160-240
-alpha1 = 0.26; alpha2 = 0.22; alpha3 = 0.30; alpha4 = 0.27 #alpha2=0.20 alpha3 = 0.36,0.28 alpha4=0.25
-#S1 = 415; S2 = 415; S3 = 318; S4 = 322#S3 = 318,348 S4=372
-S1 = 415; S2 = 415; S3 = 348; S4 = 372
+# 1: 5-5N/S 110-160  2: 5-5N/S 230-280   3: 30-60??? trying 20-50  160-240
+alpha1 = 0.23; alpha2 = 0.20; alpha3 = 0.25; alpha4 = 0.23 #alpha1 = 0.26; alpha2 = 0.22 alpha3 = 0.30,0.28 alpha4=0.27
+#S1 = 415; S2 = 415; S3 = 318; S4 = 322 #S3 = 318,348 S4=372
+S1 = 415; S2 = 415; S3 = 367; S4 = 380
 
 #ranges of SW from CERES
 # S1 and S2: 386 in july to 437 in april
@@ -257,99 +254,83 @@ def calcmean(allt): #had a bug in meanT calc after adding 5th box, this manually
 #first do only regional feedbacks
 # then add gradient dependency as well
     
-#order: [box1,box2,box3,box4]
-fb=[
-#    [0,0,0]
-# fb from regional gregory method
-    [-1.464362771788478, 1.262920367681578, -0.1255823017378239, 0.1617452258414394],
-    [-1.170704695460991, 4.328394168583622, -0.3945491597731308, -1.506356194118461],
-    [-1.2575131174656455, 4.608203236646886, -0.3146927143248965, -1.5400934668215993],
-    [-1.683629222820048, 2.74180914971312, -0.2671869803485694, -1.659089745108319],
-    [-6.562546235716876, 1.2864347929177038, -0.6197243677297757, -2.330851293174049],
-    [-2.020127998966016, -0.9379197912450468, -0.3868640394563684, -2.431354123464746],
-    [1.858783055383312, -0.0963962744588118, 0.1593413348553915, -0.3010669790132514],
-    [0.2168620398274786, 2.3512688774284154, -0.6325899961589337, -0.3399481184596712],
-    [-2.4985409596508283, 2.816228455562283, 0.4337302871091208, -1.152434436397281],
-    [-1.390706263404457, 1.7774193883448923, -1.241378873204638, -0.6091728925059099],
-    [-0.6651594244382346, 0.2760146025174704, -0.894859069390245, -1.8356513661459872],
-    [-1.703158349259982, -0.910213122762916, -0.2789929956354711, -1.1828379955468],
-    [-1.750246886863294, 1.5808955960848994, -0.4642817296719215, 0.0091009216184294],
-    [-0.8581134016846836, 1.377971535129806, -0.2034798863391184, -0.0737894334171133],
-    [-1.6724916296688956, 2.979118609772648, -1.2722003517236586, -1.3178720347855166],
-    [-1.3701126041613425, 3.4655425676857106, -1.228094380358702, -2.1813232911327005],
-    [-1.9404844346188472, 5.995702537139643, -1.7536867713194155, -1.693135128200888],
-    [-0.4353186858799627, 8.669188915749105, -0.4933320072663135, -1.672971870610251],
-    [-1.9197599012593511, 4.72201988729184, 0.0361151419107559, 1.165913627895659],
-    [-1.760016059711054, 4.726336006229374, 0.5520129949804009, 1.208797109594323],
-    [-2.218973700604919, 4.062994629298792, -0.8045976602041648, 1.3331292037250877],
-    [-1.7644369160763855, 3.535085297696166, -0.8348942565092201, 1.1488948652285056],
-    [-4.177447712349927, 6.954766021346845, 3.030875188640547, -0.6077432065236407],
-    [-0.7059217485663045, 4.744356111225485, 0.488375132008347, 0.5038168752027378]
-
-    ]
-
-mnames= ['AS-RCEC.TaiESM1', 'AWI.AWI-CM-1-1-MR', 'BCC.BCC-CSM2-MR',
-       'BCC.BCC-ESM1', 'CAMS.CAMS-CSM1-0', 'CAS.FGOALS-g3',
-       'CCCR-IITM.IITM-ESM', 'CCCma.CanESM5', 'CMCC.CMCC-CM2-SR5',
-       'FIO-QLNM.FIO-ESM-2-0', 'MIROC.MIROC-ES2L', 'MIROC.MIROC6',
-        'MOHC.HadGEM3-GC31-MM', 'MOHC.UKESM1-0-LL',
-       'MPI-M.MPI-ESM1-2-HR', 'MPI-M.MPI-ESM1-2-LR', 'NASA-GISS.GISS-E2-1-G',
-        'NASA-GISS.GISS-E2-2-G', 'NCAR.CESM2-FV2',
-       'NCAR.CESM2-WACCM-FV2', 'NCAR.CESM2-WACCM', 'NCAR.CESM2',
-       'NCC.NorESM2-MM', 'SNU.SAM0-UNICON']
-
-mcolors = ['red', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'red',
-       'blue', 'red', 'blue', 'blue', 'red', 'red', 'blue', 'blue',
-       'blue', 'blue', 'red', 'red', 'red', 'red', 'blue',
-       'red']
 
 #fb from kernel method
 fb=[
-    [-3.6108480878427445, -3.0653859511027086, -2.161006560971043, -2.376997414994206],
-    [-4.086783248693161, -3.6418263119434924, -3.179207507179533, -3.328273146886362],
-    [-4.013221011482593, -2.2555194364804363, -2.8578148806704524, -3.4767836870931608],
-    [-4.14599778258388, -2.9981241514945745, -2.449588087904302, -3.0102805982063243],
-    [-6.842743525242766, -4.509614861336947, -2.9297160740757953, -3.6413111674272884],
-    [-3.984174358305976, -1.7588237636488404, -2.4271502783742127, -1.673577052367056],
-    [-3.9005687152436757, -2.178419593459403, -2.2244426253368696, -1.975918332655555],
-    [-3.4592713001317232, -0.49852490826559553, -2.318426670593745, -1.3491357965038726],
-    [-3.905951707784501, -2.1171692472177823, -2.475116998668028, -2.043355436338996],
-    [-3.444593271140119, -1.9699726151112336, -2.6889104139896762, -2.5471615960581278],
-    [-3.2454919855694673, -2.421900086629637, -2.1724114386014035, -2.374588214152412],
-    [-4.552759846154484, -4.665342476903429, -3.4943984286182186, -2.760286984462332],
-    [-4.794555760507383, -4.123955270027671, -3.4159950347371963, -3.235045148189397],
-    [-4.57687040491357, -3.5258361652540295, -3.6810305087897013, -3.3028418852369916],
-    [-5.149624584544265, -3.818000626373466, -3.862929954114563, -3.2868901166651794],
-    [-5.201918258264647, -3.913973344499083, -3.0317869740975243, -2.499339950168719],
-    [-5.00900292321771, -3.3307569907423495, -1.927433225778417, -3.445067839821102],
-    [-3.6550405430943407, -2.9363341217911856, -2.338427058835456, -2.705000265507937],
-    [-3.236399078301035, -3.519898954020315, -2.1115389375655975, -2.501490834059701]
+    [-1.520469842017107, -1.2556147562653937, -2.1034417111556967, -1.745977415054225],
+[-1.1400492464071237, -0.8066724197518209, -1.832457305057804, -1.6517927220561486],
+[-1.041983066946665, -1.0784420260781429, -1.902692957091249, -1.378516651980788],
+[-1.0636575763372529, -1.0462062948010409, -1.8431624892952088, -1.5007292562736254],
+[-1.3247319314695214, -1.071377727089415, -2.1937409918234905, -1.7010246603303718],
+[-1.1927125188137766, -0.7075954438821985, -2.0524353402546107, -1.5725998303085396],
+[-1.1809698040064736, -0.7322345342383156, -2.088096889591821, -1.5489817703329976],
+[-1.1353132234121024, -0.6174384378552894, -2.058900708062625, -1.5284073574847308],
+[-1.115076198118857, -0.809461179828845, -2.128702501806357, -1.636195328932258],
+[-0.9421016856909648, -0.5624049036874643, -1.933930282340918, -1.498575660053308],
+[-1.0316057157285448, -0.590485131423812, -1.933654651304624, -1.4837049235646282],
+[-1.4821837005120793, -1.0894088265836002, -1.9894286394108127, -1.7541668660817886],
+[-1.0208175039109504, -0.7932807922847116, -2.002259970193138, -1.6763584885143383],
+[-0.8884099274655746, -0.6019268949078367, -2.0505567262034243, -1.6076073897485577],
+[-0.7469880964962712, -0.5491591130942219, -2.028422622835825, -1.462259220184485],
+[-0.9716245942519643, -0.6477459737389316, -2.021801166620142, -1.766905492481839],
+[-1.1983621899360344, -0.5001179160464191, -2.1832751008385074, -1.5948894556726],
+[-0.9911023268206997, -1.0515216516379402, -1.8065918383468476, -1.562233772533083],
+[-0.9691726791731288, -0.9486838822702068, -1.712607584029826, -1.4647114776026258],
+[-1.1452567351653211, -1.2073843890586446, -1.948033718868184, -1.5702703383947365]
     ]
 
 mnames= ['ACCESS-CM2', 'AWI-CM-1-1-MR', 'BCC-CSM2-MR', 'BCC-ESM1', 'CAMS-CSM1-0', 
-         'CESM2', 'CESM2-FV2', 'CESM2-WACCM', 'CESM2-WACCM-FV2', 'CanESM5', 
-         'HadGEM3-GC31-MM', 'MIROC-ES2L', 'MIROC6', 'MPI-ESM1-2-HR', 'MPI-ESM1-2-LR', 
-         'NorCPM1', 'NorESM2-MM', 'SAM0-UNICON', 'TaiESM1']
+         'CESM2', 'CESM2-FV2', 'CESM2-WACCM', 'CESM2-WACCM-FV2', 'GISS-E2-1-G', 
+         'GISS-E2-2-G', 'HadGEM3-GC31-MM', 'MIROC-ES2L', 'MIROC6', 'MPI-ESM1-2-HR', 
+         'MPI-ESM1-2-LR', 'NorESM2-MM', 'SAM0-UNICON', 'TaiESM1', 'UKESM1-0-LL']
 
-mcolors = ['red', 'blue', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'red', 
-           'red', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'red', 'red']
+mcolors = ['red', 'red', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'blue', 
+           'blue', 'red', 'blue', 'blue', 'blue', 'blue', 'blue', 'red', 'red', 'red']
 
-​
-
-
+#### generate sensitivity based on cmip fb ranges with 4 values for each region #####
+#cfb = []
+#r1 = [ fb[i][0] for i in range(len(fb)) ] #fb param of first box
+#r2 = [ fb[i][1] for i in range(len(fb)) ]
+#r3 = [ fb[i][2] for i in range(len(fb)) ]
+#r4 = [ fb[i][3] for i in range(len(fb)) ]
+#
+#for i in np.linspace(min(r1), max(r1), 4):
+#    for j in np.linspace(min(r2), max(r2), 4):
+#        for k in np.linspace(min(r3), max(r3), 4):
+#            for l in np.linspace(min(r4), max(r4), 4):
+#                cfb.append([i,j,k,l]) 
+#                
+#fb = cfb
+####################
 #loop to make fb iterations
 # total combinations of n numbers in sequence r long is n**r
 
-step = 1
-fb_low = -4
-fb_high = 1
-
+#fb = []
+#
+#step = 1
+#fb_low = -4
+#fb_high = 1
+#
 #for i in np.arange(fb_low,fb_high+step,step):
 #    for j in np.arange(fb_low,fb_high+step,step):
 #        for k in np.arange(fb_low,fb_high+step,step):
 #            fb.append([i,j,k,k]) #using same param for north/south
 
-#fb=[[-2,-2,-1,-1]]
+###########################
+
+#cmip6 mean fb
+fb = [ np.mean( np.asarray(fb), axis=0 ) ]
+#fb = [[-1.1452567351653211, 0, -1.948033718868184, -1.9702703383947365]]
+
+#CO2 FORCING AS A CONSTANT EVERYWHERE
+co2 = [8] #w/m2 4~2xCO2, 8~4xCO2, 12~8xCO2
+
+##########################
+calib = True #true to enable temp based regional fb, only use with other fb set to 0
+
+if calib: #set other prescribed fb to 0 to allow temp based regional fb to work
+    fb=[[0,0,0,0]]
+    co2 = [0] #w/m2 
 
 fb_adapt=False #make this true to use feedbacks which change based on local and warm pool temp anoms
 
@@ -361,28 +342,21 @@ slab = False
 seasonal=False #enable annual cycle of incoming SW for each box
 B_param_indiv = False #true to use unique B param for each region
 mse_indiv = True #true to use unique mse params for each region
-#
+
 
 # SET INITIAL TEMPS
 # observed ssts
-# box1: 302.6
-# box2: 298.4 (zonal grad of 4.2)
-# box3: 291.6
-# box4: 294.8
-        
-#init temps for fixed SW and MSE divergence
-#t01=299.12 #init T box 1 WEST TROPICS
-#t02=296.75 #init T box 2 EAST TROPICS
-#t03=291.16 #init T box 3 EX TROPICS/Nor Pacific
-#t04=291.16 #init T box 4 EX TROPICS/South Pacific
-#t05=291.16 #init T box 5 EQ UNDER CURRENT
+# box1: 302.3 (120-200, 8-8) 302.6 (for 110-160) 302.4(for 120-200)
+# box2: 299.4 (200-280, 8-8, zonal grad 2.9) 298.4 (zonal grad of 4.2) 299.09 (for 200-280) (zonal grad of 3.3)
+# box3: 294.4 (8-50) 291.6
+# box4: 295.7 (-40--8, merid grad 5.9) 294.6 
 
 #init temps for mean annual CERES SW and tuned mse intercept
-t01=298.8
-t02=294.8
-t03=289.8
-t04=292.0
-t05=290.9
+t01=302.3 #302.238 #302.65 #298.8
+t02=299.5 #299.507 #299.21 #294.8
+t03=293.8 #293.728 #292.28 #289.8
+t04=295.11 #295.013 #294.56 #292.0
+t05=294.45 #294.328 #293.4 #290.9
 
 #init temps for 5 boxes, w/ observed CERES SW and tuned mse intercept
 if seasonal:
@@ -391,18 +365,6 @@ if seasonal:
     t03=289.49
     t04=292.53
     t05=291.00
-        
-#init temps for fixed SW and gamma*(Tmean-T)
-#t01=306.34 #init T box 1 WEST TROPICS
-#t02=303.45 #init T box 2 EAST TROPICS
-#t03=297.91 #init T box 3 EX TROPICS/Nor Pacific
-#t04=297.91 #init T box 4 EQ UNDER CURRENT
-
-#init temps for seasonal SW NOT REDONE WITH MSE
-#t01=304.1 #init T box 1 WEST TROPICS
-#t02=301.3 #init T box 2 EAST TROPICS
-#t03=296.0 #init T box 3 EX TROPICS/Nor Pacific
-#t04=296.0 #init T box 4 EQ UNDER CURRENT
 
 zongrad0=t01-t02
 norgrad0=(t01+t02)/2 - t03
@@ -481,9 +443,11 @@ for c in range(len(co2)): #for each co2 forcing
                 
             atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int #old version gamma*(Tmean-T1)
             #to calibrate equil state
-            R= S1*(1-alpha1) - (Bwest*(T1-273.15) + Awest) + atm_div + co2[c] + fb1
+            if calib:
+                R= S1*(1-alpha1) - (Bwest*(T1-273.15) + Awest) + atm_div + co2[c] + fb1
             #once equil T found
-#            R= S1*(1-alpha1) - (Bwest*(t01-273.15) + Awest) + atm_div + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
+            else:
+                R= S1*(1-alpha1) - (Bwest*(t01-273.15) + Awest) + atm_div + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
                 
             sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
             div[0].append(atm_div)
@@ -504,11 +468,11 @@ for c in range(len(co2)): #for each co2 forcing
                 #local feedback: (Tnow - T0) * lambda
                 fb2 = (T2 - t02) * fb[i][1]
             else:
-                #feedback which becomes more neg with stronger box1 anom & more pos with stronger box2 anom
+                #feedback which becomes more neg with stronger box1 relative warming
                 #effect from west has time delay of one month
-                fb2param = fbparam0
+                fb2param = fb2param0
                 if t>501: #if a month has passed
-                    fb2param = fb2param - 0.15*(t1temp[(t-501)] - t01) #neg addition for pos west anom
+                    fb2param = fb2param - 0.69*(t1temp[(t-501)] - T2) #neg addition for pos west anom
                 fbparams[0].append(fb2param)
                 
                 fb2 = (T2 - t02) * fb2param
@@ -527,9 +491,11 @@ for c in range(len(co2)): #for each co2 forcing
             
             atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
             #to calibrate
-            R= S2*(1-alpha2) - (Beast*(T2-273.15) + Aeast) + atm_div + co2[c] + fb2
+            if calib:
+                R= S2*(1-alpha2) - (Beast*(T2-273.15) + Aeast) + atm_div + co2[c] + fb2
             #once equil found
-#            R= S2*(1-alpha2) - (Beast*(t02-273.15) + Aeast) + atm_div + co2[c] + fb2 #+ nino[1][0][t]
+            else:
+                R= S2*(1-alpha2) - (Beast*(t02-273.15) + Aeast) + atm_div + co2[c] + fb2 #+ nino[1][0][t]
                 
             sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
             div[1].append(atm_div)
@@ -546,11 +512,11 @@ for c in range(len(co2)): #for each co2 forcing
                 #local feedback: (Tnow - T0) * lambda
                 fb3 = (T3 - t03) * fb[i][2]
             else:
-                #feedback which becomes more neg with stronger box1 anom & more pos with stronger box3 anom
+                #feedback which becomes more neg with stronger box1 relative warming
                 #effect from west has time delay of four months
                 fb3param = fb3param0 
                 if t>2004: #if four months has passed
-                    fb3param = fb3param - 0.15*(t1temp[(t-2004)] - t01) #neg addition for pos west anom
+                    fb3param = fb3param - 0.29*(t1temp[(t-2004)] - T3) #neg addition for pos west anom
                 fbparams[1].append(fb3param)
                 
                 fb3 = (T3 - t03) * fb3param
@@ -568,9 +534,11 @@ for c in range(len(co2)): #for each co2 forcing
 
             atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int #old version gamma*(Tmean-T3)
             #to calibrate
-            R= S3*(1-alpha3) - (Bnorth*(T3-273.15) + Anorth) + atm_div + co2[c] + fb3
+            if calib:
+                R= S3*(1-alpha3) - (Bnorth*(T3-273.15) + Anorth) + atm_div + co2[c] + fb3
             #once equil found
-#            R= S3*(1-alpha3) - (Bnorth*(t03-273.15) + Anorth) + atm_div + co2[c] + fb3 #+ nino[2][0][t]
+            else:
+                R= S3*(1-alpha3) - (Bnorth*(t03-273.15) + Anorth) + atm_div + co2[c] + fb3 #+ nino[2][0][t]
             
             sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
             div[2].append(atm_div)
@@ -592,7 +560,7 @@ for c in range(len(co2)): #for each co2 forcing
                 #effect from west has time delay of four months
                 fb4param = fb4param0
                 if t>2004: #if four months has passed
-                    fb4param = fb4param - 0.15*(t1temp[(t-2004)] - t01) #neg addition for pos west anom
+                    fb4param = fb4param - 0.59*(t1temp[(t-2004)] - T4) #neg addition for pos west anom
                 fbparams[2].append(fb4param)
                 
                 fb4 = (T4 - t04) * fb4param
@@ -610,10 +578,15 @@ for c in range(len(co2)): #for each co2 forcing
                 mse_int = mse_int_s
 
             atm_div = mse_gamma*(mse_mean - mse(T4)) + mse_int #old version gamma*(Tmean-T4)
+            #anomalous AHT term - increase poleward AHT with warming
+            #aaht = -(Tmean-Tmean0)*
+            
             #to calibrate
-            R= S4*(1-alpha4) - (Bsouth*(T4-273.15) + Asouth) + atm_div + co2[c] + fb4
+            if calib:
+                R= S4*(1-alpha4) - (Bsouth*(T4-273.15) + Asouth) + atm_div + co2[c] + fb4
             #once equil found
-#            R= S4*(1-alpha4) - (Bsouth*(t04-273.15) + Asouth) + atm_div + co2[c] + fb4 #+ nino[2][0][t]
+            else:
+                R= S4*(1-alpha4) - (Bsouth*(t04-273.15) + Asouth) + atm_div + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
             
             sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
             div[3].append(atm_div)
@@ -660,7 +633,7 @@ for c in range(len(co2)): #for each co2 forcing
                 #temperature evolution equations
                 T1=T1 + dt/M1 * (M1*H1 + ocean1) 
                 T2=T2 + dt/M2 * (M2*H2 + ocean2 ) #+ nino[1][0][t] * dt/(3600*24*30)
-                T3=T3 + dt/M3 * (M3*H3 + ocean3) #+ (-0.04*dt/(3600*24*30))#add cooling trend from upwelling of .02 deg/month
+                T3=T3 + dt/M3 * (M3*H3 + ocean3) #+ (-0.04*dt/(3600*24*30)) #add cooling trend from upwelling of .02 deg/month
                 T4=T4 + dt/M4 * (M4*H4 + ocean4) #+ (-0.04*dt/(3600*24*30))
                 T5=T5 + dt/M5 * ocean5 
             
@@ -711,8 +684,8 @@ for c in range(len(co2)): #for each co2 forcing
 
 #%% write out data
     
-np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.200.npy',np.asarray(meanT))
-np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.200.npy',np.asarray(allT))
+#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.meanT.200.npy',np.asarray(meanT))
+#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.allT.200.npy',np.asarray(allT))
 
 #%% #########################################################################################
 ################ PLOTS - EVERYTHING BELOW HERE ARE VARIOUS PLOTS ############################
@@ -725,12 +698,23 @@ expcols=['tab:blue','tab:orange','tab:green','tab:purple']
 
 plt.figure(0)
 expnum=len(allT)
+plt.subplot(1,2,1)
 for i in range(expnum):
-    plt.plot(allT[i][0]-allT[i][1],color=expcols[i]) # T1 - T2
+    plt.plot(allT[i][0]-allT[i][1],color=expcols[i],label=co2[i]) # T1 - T2
 plt.title('Eq Gradient T1-T2')
 plt.ylabel('T1-T2')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
+plt.legend()
+
+plt.subplot(1,2,2)
+for i in range(expnum):
+    plt.plot( (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i],label=co2[i]) # T1 - T2
+plt.title('Merid Gradient (T1+T2)/2 - (T3+T4)/2')
+plt.ylabel('Merid')
+plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.xlabel('Years') 
+plt.legend()
 #plt.legend(['6e15','8e15','12e15'])
 
 ############
@@ -789,23 +773,23 @@ plt.legend()
 #
 #############
 ##only works for last exp right now
-#plt.figure(4)
-#plt.title('Atm Div')
-#plt.xlabel('Years') 
-#expnum=len(allR)
-#for i in range(expnum):
-#    plt.plot(div[0],color=expcols[i],label=co2[0])
-#    plt.plot(div[1],color=expcols[i])
-#    plt.plot(div[2],color=expcols[i])
-#    plt.plot(div[3],color=expcols[i])
-#    
-#plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
-#plt.annotate("Trop W",xy=(0,div[0][0]-0.3))
-#plt.annotate("Trop E",xy=(0,div[1][0]-0.3))
-#plt.annotate("Ex Trop N",xy=(0,div[2][10000]))
-#plt.annotate("Ex Trop S",xy=(0,div[3][10000]))
-#
-#plt.legend()
+plt.figure(4)
+plt.title('Atm Div')
+plt.xlabel('Years') 
+expnum=len(allR)
+for i in range(expnum):
+    plt.plot(div[0],color=expcols[i],label=co2[0])
+    plt.plot(div[1],color=expcols[i])
+    plt.plot(div[2],color=expcols[i])
+    plt.plot(div[3],color=expcols[i])
+    
+plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.annotate("Trop W",xy=(0,div[0][0]-0.3))
+plt.annotate("Trop E",xy=(0,div[1][0]-0.3))
+plt.annotate("Ex Trop N",xy=(0,div[2][10000]))
+plt.annotate("Ex Trop S",xy=(0,div[3][10000]))
+
+plt.legend()
 
 #plt.figure(5,figsize=(12,3))
 #
@@ -860,12 +844,14 @@ plt.legend()
 #%% OPEN AND PLOT SENSITIVITY RUNS
 
 meanT=[]
-meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.five.by1.4wm2.meanT.200.npy') )
-meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.five.by1.4wm2.meanT.200.adapt.npy') )
+meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.200.npy') )
+#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.meanT.200.npy') )
+#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.8wm2.meanT.150.npy') )
 #meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.meanT.npy') )
 allT=[]
-allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.five.by1.4wm2.allT.200.npy') )
-allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.five.by1.4wm2.allT.200.adapt.npy') )
+allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.200.npy') )
+#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.allT.200.npy') )
+#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.8wm2.allT.150.npy') )
 #allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.allT.npy') )
 
 #meanTann = np.asarray( [annualmean(meanT[i,:]) for i in range(len(meanT))] )
@@ -887,12 +873,12 @@ meanTmon=[]
 for i in range(len(meanT)):
 #    if i==0: #for new longer files
     #had a bug in meanT calc after adding 5th box, manually recalc
-    meanTmon.append([])
-    for j in range(len(meanT[i])):
-        newmean = calcmean(allTmon[i][j])
-        meanTmon[i].append(newmean)
+#    meanTmon.append([])
+#    for j in range(len(meanT[i])):
+#        newmean = calcmean(allTmon[i][j])
+#        meanTmon[i].append(newmean)
     
-    #meanTmon.append( meanT[i])
+    meanTmon.append( meanT[i])
 #    else: #for files with all timesteps written out
 #        meanTmon.append( np.asarray( [monmean(meanT[i][j,:]) for j in range(len(meanT[i]))] ) )
 
@@ -974,7 +960,7 @@ cols = ['tab:blue','tab:orange','tab:red']
 for i in range(216):
     x=[]
     y=[]
-    for exp in range(3):
+    for exp in range(len(allT)):
         zgradient = allT[exp][i][0][-1] - allT[exp][i][1][-1]
         mgradient = (allT[exp][i][0][-1] + allT[exp][i][1][-1])/2 - allT[exp][i][2][-1]
         y.append(zgradient)
@@ -1133,14 +1119,17 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import BoundaryNorm
 from matplotlib.lines import Line2D
 
-exp=0 #co2 amount, 0,1,2=2x,4x,8x
+exp=0 #co2 amount
 
 #for runs with seasonal variation
 #zonalgrad = [ rmean( allTmon[exp][i][0] - allTmon[exp][i][1],13) for i in range(len(allTmon[exp])) ]
 #meridgrad = [ rmean( (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - allTmon[exp][i][2], 13) for i in range(len(allTmon[exp])) ]
 #for runs without seasonal variation
 zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
-meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - allTmon[exp][i][2] for i in range(len(allTmon[exp])) ]
+meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - (allTmon[exp][i][2]+allTmon[exp][i][3])/2 for i in range(len(allTmon[exp])) ]
+if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
+    zonalgrad = zonalgrad[19:]
+    meridgrad = meridgrad[19:]
 
 fig = plt.figure(figsize=(7,7))
 axs = fig.add_subplot()
@@ -1150,16 +1139,17 @@ axs = fig.add_subplot()
 
 #discrete colorbar for line color
 cmap = plt.cm.get_cmap('plasma', 15)
-norm = BoundaryNorm(np.logspace(
-        np.log10( 1.0), np.log10(5),num=15), #np.max(meanTmon[exp])
-            15)
-#norm = plt.Normalize(np.min(meanTmon), np.max(meanTmon))
+#norm = BoundaryNorm(np.logspace(
+#        np.log10( 1.0), np.log10(10),num=15), #np.max(meanTmon[exp])
+#            15)
+norm = plt.Normalize(np.min(meanTmon), 6)
 
 #discrete colorbar for feedbacks
-cmapfb = plt.cm.get_cmap('bwr', 6)
-normfb = BoundaryNorm(np.arange(-4,2,1), 6)
+cmapfb = plt.cm.get_cmap('bwr', 4)
+normfb = BoundaryNorm(np.arange(np.min(fb).round(),np.max(fb).round(),0.2), 4)
 
-for i in range(216):
+for i in range(len(zonalgrad)):
+    
     
     #this is a method for coloring the line by dividing it into
     #segments, each of which is colored individually
@@ -1175,38 +1165,50 @@ for i in range(216):
     
     #plot markers indicating the feedback param in each box
     # many reach equil and bunch up all points, while some don't, need way to consistently assign scatters
-    spacing=0.01
+    spacing=0.05
     x1 = zonalgrad[i][-1]
     x2i = np.argmin( np.abs(zonalgrad[i][:] - (x1 + spacing) ) )
     x2 = zonalgrad[i][x2i]
     x3i = np.argmin( np.abs(zonalgrad[i][:] - (x2 + spacing) ) )
     x3 = zonalgrad[i][x3i]
+    x4i = np.argmin( np.abs(zonalgrad[i][:] - (x3 + spacing) ) )
+    x4 = zonalgrad[i][x4i]
     y1 = meridgrad[i][-1]
     y2 = meridgrad[i][x2i]
     y3 = meridgrad[i][x3i]
+    y4 = meridgrad[i][x4i]
     plt.scatter( x1, y1, marker="s", c=fb[i][0], 
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
     plt.scatter( x2, y2, marker="^", c=fb[i][1], 
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
     plt.scatter( x3, y3, marker="o", c=fb[i][2], 
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
- 
+    plt.scatter( x4, y4, marker=">", c=fb[i][3], 
+                cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
+    
+    #plot markers at time intervals
+    times = np.asarray([1,5,10,20,50,100])*12
+    for t in times:
+        plt.scatter( zonalgrad[i][t], meridgrad[i][t], marker=f"${int(t/12)}$",
+                    color='white', s=90)
 
-axs.set_xlim((3.3,4.4))  
-axs.set_ylim((6.65,7.1))
+#axs.set_xlim((0,5))  
+#axs.set_ylim((5.8,7.9))
 fig.colorbar(line, ax=axs,label='mean T')   
 axs.set_xlabel('zonal gradient',fontsize=14)
 axs.set_ylabel('meridional gradient',fontsize=14)
 axs.set_facecolor('grey')
 
 #plot * at initial value (same for all)
-x0 = np.mean([zonalgrad[i][0] for i in range(216)]) #allT[exp][i][0][0] - allT[exp][i][1][0]
-y0 = np.mean([meridgrad[i][0] for i in range(216)])#(allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0]
+x0 = np.mean([zonalgrad[i][0] for i in range(len(zonalgrad))]) #allT[exp][i][0][0] - allT[exp][i][1][0]
+y0 = np.mean([meridgrad[i][0] for i in range(len(zonalgrad))])#(allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0]
 plt.scatter(x0, y0, marker='*',s=50,color='red',zorder=10)
 
 # draw lines through initial point to divide into quadrants
-plt.hlines(y0, xmin = 3.3, xmax= 4.5, linestyle = '--', color = 'black', alpha=0.7)
-plt.vlines(x0, ymin = 5.9, ymax= 7.2, linestyle = '--', color = 'black', alpha=0.7)
+#plt.hlines(y0, xmin = 0, xmax= 4, linestyle = '--', color = 'black', alpha=0.7)
+#plt.vlines(x0, ymin = 5.8, ymax= 7.8, linestyle = '--', color = 'black', alpha=0.7)
+plt.hlines(y0, xmin = np.min(zonalgrad), xmax= np.max(zonalgrad), linestyle = '--', color = 'black', alpha=0.7)
+plt.vlines(x0, ymin = np.min(meridgrad), ymax= np.max(meridgrad), linestyle = '--', color = 'black', alpha=0.7)
 
 
 legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1',
@@ -1214,10 +1216,44 @@ legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1',
                    Line2D([0], [0], marker='^', lw=0, label='Box 2',
                           markerfacecolor='black', markersize=10),
                    Line2D([0], [0], marker='o', lw=0, label='Box 3',
+                          markerfacecolor='black', markersize=10),
+                   Line2D([0], [0], marker='>', lw=0, label='Box 4',
                           markerfacecolor='black', markersize=10)
                    ]
 axs.legend(handles=legend_elements, loc='upper right')
+#%% investigate fb's of merid strengthening
 
+#print fb of merid grad strengthening
+for i in range(len(fb)):
+    if meridgrad[i][-1] > meridgrad[i][0]:
+#        print( (fb[i][0]+fb[i][1])/2 - (fb[i][2]+fb[i][3])/2 )
+        if ( (fb[i][0]+fb[i][1])/2 - (fb[i][2]+fb[i][3])/2 ) < 2:
+            
+            print(fb[i], (fb[i][0]+fb[i][1])/2 - (fb[i][2]+fb[i][3])/2)
+
+# trop - merid fb
+        # in cmip
+#0.5366672639637105
+#0.7687641804775038
+#0.5803922580236145
+#0.6170139372152703
+#0.7493279967974629
+#0.8623636039335876
+#0.8619371608400147
+#0.9172782021399819
+#0.9201802263954566
+#0.9639996765078983
+#0.8976343638584476
+#0.5860014891984611
+#0.9322600812559071
+#1.0839136467892854
+#1.0972673167149085
+#1.0846680455555426
+#1.0398422252643271
+#0.6631008162106455
+#0.6297312500945581
+#0.5828314665194774
+        
 
 #fig.savefig('gradsandtemp.png')
 #plt.close(fig)
@@ -1229,24 +1265,40 @@ axs.legend(handles=legend_elements, loc='upper right')
 # quad 3: more neg box 1 cools box 1, weakens zonal, while more pos box 3 warms box 3, weakens merid
 # quad 4: more neg box 2 cools box 2, strengthen zonal, more pos box 1 warms box 1, also strengthen zonal
 
-exp=1
+exp=0
 
 #for runs with seasonal variation
 #zonalgrad = [ rmean( allTmon[exp][i][0] - allTmon[exp][i][1],13) for i in range(len(allTmon[exp])) ]
 #meridgrad = [ rmean( (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - allTmon[exp][i][2], 13) for i in range(len(allTmon[exp])) ]
 #for runs without easonal variation
 zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
-meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - allTmon[exp][i][2] for i in range(len(allTmon[exp])) ]
-
+meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - (allTmon[exp][i][2]+allTmon[exp][i][3])/2 for i in range(len(allTmon[exp])) ]
+if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
+    zonalgrad = zonalgrad[19:]
+    meridgrad = meridgrad[19:]
+    
 #for seasonal means
 #x0 = np.mean([zonalgrad[i][6] for i in range(216)]) #allT[exp][i][0][0] - allT[exp][i][1][0]
 #y0 = np.mean([meridgrad[i][6] for i in range(216)])#(allT[exp][0][0][0]+allT[exp][0][1][0])/2 - allT[exp][0][2][0]
+
+#function to check if val1 is within pct% of val2
+def pctof(val1,val2,pct=10):
+    val1 = abs(val1)
+    val2 = abs(val2)
+    thresh = val2*pct/100
+    up = val2+thresh
+    down = val2-thresh
+    
+    if (val1<=up) & (val1>=down):
+        return True
+    else:
+        return False
 
 #quad 1: x<x0, y>y0. quad 2: x>x0, y>y0. quad 3: x<x0, y<y0. quad 4: x>x0, y<y0
 titles=['Zonal weaken & Merid strengthen','Zonal strengthen & Merid strengthen',
         'Zonal weaken & Merid weaken','Zonal strengthen & Merid weaken']
 quads = [ [], [], [], [] ]
-for i in range(len(zonalgrad)):
+for i in range(len(fb)):
     if (zonalgrad[i][-1] < x0) & (meridgrad[i][-1] > y0):
         quads[0].append(fb[i])
     elif (zonalgrad[i][-1] > x0) & (meridgrad[i][-1] > y0):
@@ -1263,6 +1315,7 @@ for i in range(4): # for each quadrant
     fb1quad = [ quads[i][j][0] for j in range(len(quads[i]))]
     fb2quad = [ quads[i][j][1] for j in range(len(quads[i]))]
     fb3quad = [ quads[i][j][2] for j in range(len(quads[i]))]
+    fb4quad = [ quads[i][j][3] for j in range(len(quads[i]))]
     
     #create stats about relative param strengths, 9 possibilities
     arr = np.zeros((3,3))
@@ -1270,24 +1323,24 @@ for i in range(4): # for each quadrant
 #    meridstr = 0 ; merideq=0 ; meridweak = 0
     for j in range(len(fb1quad)):
         if (fb1quad[j] > fb2quad[j]): # if box 1 param > box 2 param, col 1
-            if fb3quad[j] < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop row 1
-                arr[2,0] +=1
-            elif fb3quad[j] == np.mean([fb1quad[j],fb2quad[j]]): #row 2
+            if pctof( np.mean([fb3quad[j],fb4quad[j]]) , np.mean([fb1quad[j],fb2quad[j]]) ): #extrop~trop row 2
                 arr[1,0] +=1
+            elif np.mean([fb3quad[j],fb4quad[j]]) < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop row 1
+                arr[2,0] +=1
             else: #row 3
                 arr[0,0] +=1
         elif fb1quad[j] == fb2quad[j]: #col 2
-            if fb3quad[j] < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
-                arr[2,1] +=1
-            elif fb3quad[j] == np.mean([fb1quad[j],fb2quad[j]]):
+            if pctof( np.mean([fb3quad[j],fb4quad[j]]) , np.mean([fb1quad[j],fb2quad[j]]) ): #extrop~trop row 2
                 arr[1,1] +=1
+            elif np.mean([fb3quad[j],fb4quad[j]]) < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
+                arr[2,1] +=1
             else:
                 arr[0,1] +=1
         elif (fb1quad[j] < fb2quad[j]): # if box 3 param > avg of box1&2 col 3
-            if fb3quad[j] < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
-                arr[2,2] +=1
-            elif fb3quad[j] == np.mean([fb1quad[j],fb2quad[j]]):
+            if pctof(np.mean([fb3quad[j],fb4quad[j]]),np.mean([fb1quad[j],fb2quad[j]]) ): #extrop~trop row 2
                 arr[1,2] +=1
+            elif np.mean([fb3quad[j],fb4quad[j]]) < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
+                arr[2,2] +=1
             else:
                 arr[0,2] +=1
    
@@ -1303,9 +1356,9 @@ for i in range(4): # for each quadrant
     # draw gridlines
     #ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=2)
     ax[i].set_xticks(np.arange(0, 3, 1))
-    ax[i].set_xticklabels(['West>East','West=East','West<East'])
+    ax[i].set_xticklabels(['West>East','West~East','West<East'])
     ax[i].set_yticks(np.arange(0, 3, 1))
-    ax[i].set_yticklabels(['ExTrop>Trop','ExTrop=Trop','ExTrop<Trop'])
+    ax[i].set_yticklabels(['ExTrop>Trop','ExTrop~Trop','ExTrop<Trop'])
     
     #add text of number in each grid
     for row in range(3):
@@ -1704,6 +1757,10 @@ axs.legend(handles=legend_elements, loc='upper right')
 axs.set_ylim([6.3,7.05])
 axs.set_xlim([1.8,3])
 
+#%% read in cmip6-fb runs
+meanT = np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.150.npy')
+allT = np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.150.npy')
+
 #%% PLOTS FOR CMIP MODELS
 ###################################################################################
 #mean T
@@ -1712,6 +1769,7 @@ for i in range(len(meanT)):
 
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
+plt.ylabel('mean T')
     
 #%% zonal
     
@@ -1723,28 +1781,215 @@ for i in range(len(allT)):
 #plt.ylim([0,5])
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
-plt.title('West-East Pac')
+plt.title('West-East Pac',fontsize=15)
 
+#%% meridional
+
+extrop = [ (allT[i][2]*M3 + allT[i][3]*M4)/(M3+M4) for i in range(len(allT)) ]
+meridgrad = [ (allT[i][0] + allT[i][1])/2 - extrop[i] for i in range(len(allT)) ]
+
+for i in range(len(allT)):
+    plt.plot( meridgrad[i], color=mcolors[i] )
+
+plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.xlabel('Years') 
+plt.title('Trop-ExTrop Pac',fontsize=15)
+
+#%% zonal vs meridional
+
+for i in range(len(allT)):
+    plt.plot( zonalgrad[i], meridgrad[i], color=mcolors[i] )
+    
+plt.xlabel('Zonal gradient [K]', fontsize=14)
+plt.ylabel('Meridional gradient [K]', fontsize=14)
 #%% all boxes
     
 plt.title("Temperatures")
 expnum=len(allT)
 for i in range(expnum):
-#    plt.plot(allT[i][0],color=mcolors[i])
-#    plt.plot(allT[i][1],color=mcolors[i])
-#    plt.plot(allT[i][2],color=mcolors[i])
-#    plt.plot(allT[i][3],color=mcolors[i])
-#    plt.plot(allT[i][4],color=mcolors[i])
+    plt.plot(allT[i][0],color=mcolors[i])
+    plt.plot(allT[i][1],color=mcolors[i])
+    plt.plot(allT[i][2],color=mcolors[i])
+    plt.plot(allT[i][3],color=mcolors[i])
+    plt.plot(allT[i][4],color=mcolors[i])
 
-#plt.annotate("Trop W",xy=(0,allT[0][0][0]-0.3))
-#plt.annotate("Trop E",xy=(0,allT[0][1][0]-0.3))
+plt.annotate("Trop W",xy=(0,allT[0][0][0]-0.3))
+plt.annotate("Trop E",xy=(0,allT[0][1][0]-0.3))
 pltlen=int(len(allT[0][0])-0.2*len(allT[0][0]))
 plt.annotate("Ex Trop N",xy=(pltlen,allT[0][2][pltlen]))
 plt.annotate("Ex Trop S",xy=(pltlen,allT[0][3][pltlen]))
-#plt.annotate("UnderCurrent",xy=(0,allT[0][4][100]))
+plt.annotate("UnderCurrent",xy=(0,allT[0][4][100]))
 
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
 plt.legend()
 
-#%% south
+#%% compare final temps between box model and cmip
+
+cmipwest = [
+5.317439296937615 ,
+4.23576547479832 ,
+2.6471753811465573 ,
+3.849355067285773 ,
+3.425718791598172 ,
+8.295928535409585 ,
+5.0445861573644155 ,
+5.037036953987397 ,
+4.451714457310835 ,
+4.516521409353405 ,
+3.1773397714254723 ,
+5.688561393368199 ,
+2.7870969524269946 ,
+1.540584811941265 ,
+4.014314931236993 ,
+3.767700554828897 ,
+2.5873316022686725 ,
+4.975759079869772 ,
+5.023702618897059 ,
+6.031064870762728
+]
+cmipeast = [
+5.722134821570752 ,
+4.659441132950339 ,
+2.5648264217107246 ,
+4.492496669348431 ,
+4.005267701904192 ,
+11.319327213000319 ,
+6.743521430444507 ,
+6.692437543073716 ,
+6.494159812481334 ,
+4.897337321271708 ,
+3.4872853879767134 ,
+7.139615912856968 ,
+4.504067971457132 ,
+2.982379332241905 ,
+5.474508120504309 ,
+3.974414266607462 ,
+2.9107233888105157 ,
+5.1252260572763815 ,
+7.457046282078699 ,
+6.963737576202504
+        ]
+cmipnorth = [
+        5.331836184817201 ,
+4.468546284512108 ,
+3.8911974038622956 ,
+4.525793472139346 ,
+3.432926836302463 ,
+7.959147181031481 ,
+4.488680361414968 ,
+4.610141716960852 ,
+3.8839003726047125 ,
+4.027295917684933 ,
+3.2573681544033217 ,
+6.078470813270363 ,
+3.735427905284741 ,
+3.347298561904065 ,
+3.920054025990807 ,
+4.574304547636112 ,
+3.664950248405717 ,
+4.449354036387424 ,
+4.554032053662816 ,
+5.952702177875024
+        ]
+
+cmipsouth = [
+        4.043170495033338 ,
+3.291436718370807 ,
+3.117575628965767 ,
+3.328508418188466 ,
+2.978641776204887 ,
+9.73927930331121 ,
+4.7557999620716656 ,
+5.395266573407693 ,
+4.571963991543822 ,
+3.9129403982319584 ,
+2.457714849804559 ,
+5.405994124907365 ,
+2.6220800800182196 ,
+2.480441594036926 ,
+3.484375286190383 ,
+3.253633833762891 ,
+2.074874054742093 ,
+4.604882457453889 ,
+4.5627095957296655 ,
+5.161978506985018
+        ]
+wdiff=[]
+ediff=[]
+ndiff=[]
+sdiff=[]
+
+for i in range(len(fb)):
+    wdiff.append( allTmon[0][i][0][-1] - t01 - cmipwest[i])
+    ediff.append( allTmon[0][i][1][-1] - t02 - cmipeast[i])
+    ndiff.append( allTmon[0][i][2][-1] - t03 - cmipnorth[i])
+    sdiff.append( allTmon[0][i][3][-1] - t04 - cmipsouth[i])
+
+cmap = plt.get_cmap('jet')
+colors=cmap(np.linspace(0,1,len(fb)))    
+for i in range(len(fb)):
+    plt.scatter( 1,wdiff[i], color=colors[i])
+    plt.scatter( 2, ediff[i], color=colors[i])
+    plt.scatter( 3, ndiff[i], color=colors[i])
+    plt.scatter( 4, sdiff[i], color=colors[i])
+    plt.plot( [1,2,3,4], [wdiff[i],ediff[i],ndiff[i],sdiff[i]], color=colors[i])
+plt.grid()
+plt.title('Box model - CMIP6 regional temp difference')
+
+#%% box model - cmip6 mean warming in each region
+wmean = np.mean(cmipwest)
+emean = np.mean(cmipeast)
+nmean = np.mean(cmipnorth)
+smean = np.mean(cmipsouth)
+
+wdiff=[]
+ediff=[]
+ndiff=[]
+sdiff=[]
+
+for i in range(len(fb)):
+    wdiff.append( allT[i][0][-1] - t01 - wmean)
+    ediff.append( allT[i][1][-1] - t02 - emean)
+    ndiff.append( allT[i][2][-1] - t03 - nmean)
+    sdiff.append( allT[i][3][-1] - t04 - smean)
+
+for i in range(len(fb)):
+    plt.scatter( 1,wdiff[i], color=colors[i])
+    plt.scatter( 2, ediff[i], color=colors[i])
+    plt.scatter( 3, ndiff[i], color=colors[i])
+    plt.scatter( 4, sdiff[i], color=colors[i])
+    plt.plot( [1,2,3,4], [wdiff[i],ediff[i],ndiff[i],sdiff[i]], color=colors[i])
+plt.grid()
+plt.title('Box model - CMIP6 mean regional temp difference')
+
+#%%  Relative warming in each box by certain year
+
+plt.figure(1)
+plt.title("Temperatures")
+cmap = plt.get_cmap('Blues')
+wcolors=cmap(np.linspace(0,1,len(fb)))
+cmap = plt.get_cmap('Reds')
+ecolors=cmap(np.linspace(0,1,len(fb)))
+cmap = plt.get_cmap('Greens') 
+scolors=cmap(np.linspace(0,1,len(fb))) 
+cmap = plt.get_cmap('Purples')
+ncolors=cmap(np.linspace(0,1,len(fb)))
+cmap = plt.get_cmap('Oranges') 
+ucolors=cmap(np.linspace(0,1,len(fb)))  
+for i in range(len(fb)):
+#    plt.plot(allT[0][i][0] - t01,color='tab:blue', alpha= 0.6)
+#    plt.plot(allT[0][i][1] - t02,color='tab:purple', alpha= 0.6)
+#    plt.plot(allT[0][i][2] - t03,color='tab:red', alpha= 0.6)
+#    plt.plot(allT[0][i][3] - t04,color='tab:orange', alpha= 0.6)
+#    plt.plot(allT[0][i][4] - t05,color='tab:green', alpha= 0.6)
+    plt.plot(allT[i][0] - t01,color='tab:blue', alpha= 0.6)
+    plt.plot(allT[i][1] - t02,color='tab:purple', alpha= 0.6)
+    plt.plot(allT[i][2] - t03,color='tab:red', alpha= 0.6)
+    plt.plot(allT[i][3] - t04,color='tab:orange', alpha= 0.6)
+    plt.plot(allT[i][4] - t05,color='tab:green', alpha= 0.6)
+
+
+plt.xticks(ticks=np.linspace(0,len(allT[0][0][:]),6),labels=np.linspace(0,int(years),6).round())
+plt.xlabel('Years',fontsize=14) 
+plt.legend(labels=['west','east','north','south','under'],fontsize=14)
