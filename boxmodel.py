@@ -28,19 +28,27 @@ rhoair = 1.225 # kg/m3 dens of air
 p_air=100000 # Pa air pressure
 
 epsilon = 0.48 # ratio of flow out
-M1=7.8e14 #4.9e14 #3e14 6.8e14 #m3, vol of box 1 (west)
-M2=3.2e14 #7.8e14 #4.9e14 #3e14#6.8e14 #m3, vol of box 2 (east)
-M3=6.6e15 #4.5e15 #m3, vol of box 3  (north) 
-M4=5.7e15 #4.3e15 #m3, vol of box 4 (south)
-#for 20-50N 160-240E =24031081172332.445*200=4806216234466489.0 ~ 4.8e15m3
-#was using 4e15
-M5=3.7e16 #9.5e15 #4e15 #9.6e15 #8e15 #m3, vol of box 5 (undercurrent)
-Aw=1e3  #m3/(s K) walker coupling param
-Ah=2e6 #4e6  #m3/(s K) hadley coupling param
-h1=50 #m, depth of box 1
-h2=20 #50 #m, depth of box 2
+warea = 15774945387831 #surface area of box 1, west
+earea = 15774945387831
+narea = 33306750009756
+sarea = 28541763159964
+h1=50 #60 #m, depth of box 1
+h2=50 #20 #50 #m, depth of box 2
 h3=200 #m, depth of box 3
 h4=200 #m, depth of box 5
+M1= warea * h1 #7.8e14 #4.9e14 #3e14 6.8e14 #m3, vol of box 1 (west)
+M2= earea * h2 #3.2e14 #7.8e14 #4.9e14 #3e14#6.8e14 #m3, vol of box 2 (east)
+M3= narea * h3 #6.6e15 #4.5e15 #m3, vol of box 3  (north) 
+M4= sarea * h4 #5.7e15 #4.3e15 #m3, vol of box 4 (south)
+#for 20-50N 160-240E =24031081172332.445*200=4806216234466489.0 ~ 4.8e15m3
+#was using 4e15
+underarea = warea + earea + narea + sarea
+underdepth = 150 #150 for cmip-like...?
+M5=underarea * underdepth #9.5e15 #4e15 #9.6e15 #8e15 #m3, vol of box 5 (undercurrent)
+
+Aw=1e6 #0.1e6  #m3/(s K) walker coupling param
+Ah=4e6 #2.5e6 #4e6  #m3/(s K) hadley coupling param
+
 
 #constants for MSE div
 cp_air=1005; #J/kg/K
@@ -50,15 +58,15 @@ RH=0.8; # relative humidity in tropics
 RHet=0.7 # relative humidity in ex tropics? probably not, looks the same
 epsil=0.622; # ration of mass or vapour to dry air
 mse_gamma = 0.001581 # W/m2 / J/kg
-mse_gamma_w = 0.001581 #0.005294 #all these custom regression mse do not work well. they are now manually set
-mse_gamma_e = 0.001581 #0.006529 #0.001581
-mse_gamma_n = 0.001581 #0.002115 #0.001581
-mse_gamma_s = 0.001581 #0.001724 #0.001581 #
+mse_gamma_w = 0.000050 #0.001081 #0.005294 #all these custom regression mse do not work well. they are now manually set
+mse_gamma_e = -0.000042 #0.006500 #0.006529 #0.001581
+mse_gamma_n = 0.000437 #0.001081 #0.002115 #0.001581
+mse_gamma_s = 0.000407 #0.001381 #0.001724 #0.001581 #
 mse_int = -9.56 #-9.56 #intercept for mse regression
-mse_int_w = -15 #-7 #43.12 #-7
-mse_int_e = -23 #-9 #56.26 #-11
-mse_int_n = -44 #-36.79 #-47#-26
-mse_int_s = -51 #-38.1 #-54#-36
+mse_int_w = -47 #-18 #-7 #43.12 #-7
+mse_int_e = -38 #50 #-9 #56.26 #-11
+mse_int_n = -45 #-44 #-36.79 #-47#-26
+mse_int_s = -55 #-51 #-38.1 #-54#-36
 #regression done on Cheyenne notebook mse_aht_regression.ipynb
 #used only 65S-65N
 
@@ -153,13 +161,6 @@ area4=M4/h4
 totvol = M1+M2+M3+M4
 weights=[M1/totvol,M2/totvol,M3/totvol,M4/totvol]
 
-
-#array for temps from all experiments, is appended automatically for each new exp
-allT=[]
-meanT=[]
-allLatent=[]
-allR=[]
-ocean=[]
 
 #%%
 ###########################################################
@@ -288,17 +289,18 @@ mcolors = ['red', 'red', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'bl
            'blue', 'red', 'blue', 'blue', 'blue', 'blue', 'blue', 'red', 'red', 'red']
 
 #### generate sensitivity based on cmip fb ranges with 4 values for each region #####
-#cfb = []
-#r1 = [ fb[i][0] for i in range(len(fb)) ] #fb param of first box
-#r2 = [ fb[i][1] for i in range(len(fb)) ]
-#r3 = [ fb[i][2] for i in range(len(fb)) ]
-#r4 = [ fb[i][3] for i in range(len(fb)) ]
-#
-#for i in np.linspace(min(r1), max(r1), 4):
-#    for j in np.linspace(min(r2), max(r2), 4):
-#        for k in np.linspace(min(r3), max(r3), 4):
-#            for l in np.linspace(min(r4), max(r4), 4):
-#                cfb.append([i,j,k,l]) 
+cfb = []
+r1 = [ fb[i][0] for i in range(len(fb)) ] #fb param of first box
+r2 = [ fb[i][1] for i in range(len(fb)) ]
+r3 = [ fb[i][2] for i in range(len(fb)) ]
+r4 = [ fb[i][3] for i in range(len(fb)) ]
+buffer = 0.5 #extra value to add to min/max of each range
+
+for i in np.linspace(min(r1) - buffer, max(r1) + buffer, 4):
+    for j in np.linspace(min(r2) - buffer, max(r2) + buffer, 4):
+        for k in np.linspace(min(r3) - buffer, max(r3) + buffer, 4):
+            for l in np.linspace(min(r4) - buffer, max(r4) + buffer, 4):
+                cfb.append([i,j,k,l]) 
 #                
 #fb = cfb
 ####################
@@ -320,19 +322,23 @@ mcolors = ['red', 'red', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'bl
 
 #cmip6 mean fb
 fb = [ np.mean( np.asarray(fb), axis=0 ) ]
-#fb = [[-1.1452567351653211, 0, -1.948033718868184, -1.9702703383947365]]
+#fb = [[-1.1051, -0.8333, -1.99907, -1.5852]]
+#fb = [ [min(r1) - buffer, max(r2) + buffer, max(r3) + buffer, max(r4) + buffer] ]
 
 #CO2 FORCING AS A CONSTANT EVERYWHERE
 co2 = [8] #w/m2 4~2xCO2, 8~4xCO2, 12~8xCO2
 
 ##########################
-calib = True #true to enable temp based regional fb, only use with other fb set to 0
+calib = False #true to enable temp based regional fb, only use with other fb set to 0
 
 if calib: #set other prescribed fb to 0 to allow temp based regional fb to work
     fb=[[0,0,0,0]]
     co2 = [0] #w/m2 
 
+##########################
 fb_adapt=False #make this true to use feedbacks which change based on local and warm pool temp anoms
+if fb_adapt:
+    print("FB_ADAPT ON")
 
 # agcm fixes ocean temps at initial and transport at 0
 # slab ocean has free temps and transport fixed at equilibrium vals
@@ -350,342 +356,361 @@ mse_indiv = True #true to use unique mse params for each region
 # box2: 299.4 (200-280, 8-8, zonal grad 2.9) 298.4 (zonal grad of 4.2) 299.09 (for 200-280) (zonal grad of 3.3)
 # box3: 294.4 (8-50) 291.6
 # box4: 295.7 (-40--8, merid grad 5.9) 294.6 
+obst1 = 302.3
+obst2 = 299.4
+obst3 = 294.4
+obst4 = 295.7
+
+def tcheck():
+    print("T1",np.round(T1-obst1,decimals=2))
+    print("T2",np.round(T2-obst2,decimals=2))
+    print("T3",np.round(T3-obst3,decimals=2))
+    print("T4",np.round(T4-obst4,decimals=2))
 
 #init temps for mean annual CERES SW and tuned mse intercept
-t01=302.3 #302.238 #302.65 #298.8
-t02=299.5 #299.507 #299.21 #294.8
-t03=293.8 #293.728 #292.28 #289.8
-t04=295.11 #295.013 #294.56 #292.0
-t05=294.45 #294.328 #293.4 #290.9
+t01=302.47 #302.3 #302.238 #302.65 
+t02=299.23 #299.5 #299.507 #299.21 
+t03=293.94 #293.8 #293.728 #292.28 
+t04=295.48 #295.11 #295.013 #294.56 
+t05=294.66 #294.328 #293.4 
 
 #init temps for 5 boxes, w/ observed CERES SW and tuned mse intercept
-if seasonal:
-    t01=299.12
-    t02=295.11
-    t03=289.49
-    t04=292.53
-    t05=291.00
+#if seasonal:
+#    t01=299.12
+#    t02=295.11
+#    t03=289.49
+#    t04=292.53
+#    t05=291.00
 
 zongrad0=t01-t02
 norgrad0=(t01+t02)/2 - t03
 sougrad0=(t01+t02)/2 - t04
 #%% MAIN LOOP
 
-for c in range(len(co2)): #for each co2 forcing
+#array for temps from all experiments, is appended automatically for each new exp
+allT=[]
+meanT=[]
+allLatent=[]
+allR=[]
+ocean=[]
+
+for itr in range(1): #decide what length you want to run for any parameter suite
     
-
-    for i in range(len(fb)): #for each feedback set
-        
-        t1=[t01]
-        t2=[t02]
-        t3=[t03]
-        t4=[t04]
-        t5=[t05]
-        t1temp=[]
-        R1=[]; R2=[]; R3=[]; R4=[]
-        H1OLR=[]; H2OLR=[]; H3OLR=[]; H4OLR=[]
-        H1Latent=[]; H2Latent=[]; H3Latent=[]; H4Latent=[]
-        sw=[[],[],[],[]]; lw=[[],[],[],[]]; div=[[],[],[],[]]
-        circ=[[],[],[],[]]
-        ot=[[],[],[],[],[]]
+    param0 = 3.6e6
+    delta = param0 * 0.2
     
-        Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2])
-        if fb_adapt:
-            
-            fb2param0=fb[i][1]
-            fb3param0=fb[i][2]
-            fb4param0=fb[i][3]
-            fbparams=[[fb2param0],[fb3param0],[fb4param0]]
-        for t in range(timesteps-1):
-            
-            
-            #define initial temps
-            if t==0: 
-                T1=t01
-                T2=t02
-                T3=t03
-                T4=t04
-                T5=t05
-                dT1=0 ; dT2=0; dT3=0; dT4=0
-            
-                
-            #ocean transport m3/s from tropics to extropics
-            #q=Ah*( np.average([T1,T2],weights=[M1,M2]) - T3 + Aw*(T1-T2) # for north
-            q=Ah*( np.average([T1,T2],weights=[M1,M2]) - np.average([T3,T4],weights=[M3,M4])) + Aw*(T1-T2)  #for north and south
-            #q2=Ah*( np.average([T1,T2],weights=[M1,M2]) - T4) + Aw*(T1-T2) #for south
-            #weight by volumes of extrop boxes
-#            q = q*M3/(M3+M4)
-#            q2 = q*M4/(M3+M4)
-            q4 = q*M4/(M3+M4)
-            q3 = q-q4
-            
-            
-            Tmean = 1/np.sum(weights)*(T1*weights[0] + T2*weights[1] + T3*weights[2] + T4*weights[3])
-            mse_mean = 1/np.sum(weights)*(mse(T1)*weights[0] + mse(T2)*weights[1] + mse(T3)*weights[2]
-            + mse(T4)*weights[3])
-        ###############################################################
-        ## BOX 1 ### WEST #############################################
-        ###############################################################
-            #fb param in west only depends on local temp
-            fb1 = (T1 - t01) * fb[i][0]
-            
-            #seasonal SW cycle
-            if seasonal:
-                S1=SW[0][0][t]
-                
-            if not B_param_indiv:
-                Bwest=B
-                Awest=A
-            
-            if mse_indiv:
-                mse_gamma = mse_gamma_w
-                mse_int = mse_int_w
-                
-            atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int #old version gamma*(Tmean-T1)
-            #to calibrate equil state
-            if calib:
-                R= S1*(1-alpha1) - (Bwest*(T1-273.15) + Awest) + atm_div + co2[c] + fb1
-            #once equil T found
-            else:
-                R= S1*(1-alpha1) - (Bwest*(t01-273.15) + Awest) + atm_div + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
-                
-            sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
-            div[0].append(atm_div)
-            circ[0].append(q*(1-epsilon)*(T2-T1))
-            H1= 1/(Cp*rho*h1) * R
-            R1.append(R)
-        #    H1OLR.append(H1olr)
-            
-        ###################################################################
-        #### BOX 2 ### EAST ############################################### 
-        ###################################################################        
-            # east Pac feedback via Walker weakening
-            # albedo (alpha) logistic function of T1-T2...?
-            # 
-        #    alpha2 =  logi(T1,T2)
-            
-            if not fb_adapt: #single regional feedback parameter
-                #local feedback: (Tnow - T0) * lambda
-                fb2 = (T2 - t02) * fb[i][1]
-            else:
-                #feedback which becomes more neg with stronger box1 relative warming
-                #effect from west has time delay of one month
-                fb2param = fb2param0
-                if t>501: #if a month has passed
-                    fb2param = fb2param - 0.69*(t1temp[(t-501)] - T2) #neg addition for pos west anom
-                fbparams[0].append(fb2param)
-                
-                fb2 = (T2 - t02) * fb2param
-            
-            #seasonal SW cycle
-            if seasonal:
-                S2=SW[1][0][t]
-                
-            if not B_param_indiv:
-                Beast=B
-                Aeast=A
-                
-            if mse_indiv:
-                mse_gamma = mse_gamma_e
-                mse_int = mse_int_e
-            
-            atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
-            #to calibrate
-            if calib:
-                R= S2*(1-alpha2) - (Beast*(T2-273.15) + Aeast) + atm_div + co2[c] + fb2
-            #once equil found
-            else:
-                R= S2*(1-alpha2) - (Beast*(t02-273.15) + Aeast) + atm_div + co2[c] + fb2 #+ nino[1][0][t]
-                
-            sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
-            div[1].append(atm_div)
-            circ[1].append(q*(T4-T2))
-            H2= 1/(Cp*rho*h2) * R
-            R2.append(R)
-        #    H2OLR.append(H2olr)
+    changed = np.arange( param0 - 5*delta, param0 + 5*delta + 0.01, delta)
+    
+#    Ah = changed[itr]
+    
+    for c in range(len(co2)): #for each co2 forcing
         
-        ########################################################################
-        #### BOX 3 ### NORTH ###################################################
-        ########################################################################
+    
+        for i in range(len(fb)): #for each feedback set
+            
+            t1=[t01]
+            t2=[t02]
+            t3=[t03]
+            t4=[t04]
+            t5=[t05]
+            t1temp=[]
+            R1=[]; R2=[]; R3=[]; R4=[]
+            H1OLR=[]; H2OLR=[]; H3OLR=[]; H4OLR=[]
+            H1Latent=[]; H2Latent=[]; H3Latent=[]; H4Latent=[]
+            sw=[[],[],[],[]]; lw=[[],[],[],[]]; div=[[],[],[],[]]
+            circ=[[],[],[],[]]
+            ot=[[],[],[],[],[]]
         
-            if not fb_adapt:
-                #local feedback: (Tnow - T0) * lambda
-                fb3 = (T3 - t03) * fb[i][2]
-            else:
-                #feedback which becomes more neg with stronger box1 relative warming
-                #effect from west has time delay of four months
-                fb3param = fb3param0 
-                if t>2004: #if four months has passed
-                    fb3param = fb3param - 0.29*(t1temp[(t-2004)] - T3) #neg addition for pos west anom
-                fbparams[1].append(fb3param)
-                
-                fb3 = (T3 - t03) * fb3param
-            
-            #seasonal SW cycle
-            if seasonal:
-                S3=SW[2][0][t]
-            
-            if not B_param_indiv:
-                Bnorth=B
-                Anorth=A
-            if mse_indiv:
-                mse_gamma = mse_gamma_n
-                mse_int = mse_int_n
-
-            atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int #old version gamma*(Tmean-T3)
-            #to calibrate
-            if calib:
-                R= S3*(1-alpha3) - (Bnorth*(T3-273.15) + Anorth) + atm_div + co2[c] + fb3
-            #once equil found
-            else:
-                R= S3*(1-alpha3) - (Bnorth*(t03-273.15) + Anorth) + atm_div + co2[c] + fb3 #+ nino[2][0][t]
-            
-            sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
-            div[2].append(atm_div)
-            circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
-            H3= 1/(Cp*rho*h3) * R
-            R3.append(R)
-        #    H3OLR.append(H3olr)
-        #    H3Latent.append(H3latent)
-        
-        ########################################################################
-        #### BOX 4 ### SOUTH ###################################################
-        ########################################################################
-        
-            if not fb_adapt:
-                #local feedback: (Tnow - T0) * lambda
-                fb4 = (T4 - t04) * fb[i][3]
-            else:
-                #feedback which becomes more neg with stronger box1 anom & more pos with stronger box3 anom
-                #effect from west has time delay of four months
-                fb4param = fb4param0
-                if t>2004: #if four months has passed
-                    fb4param = fb4param - 0.59*(t1temp[(t-2004)] - T4) #neg addition for pos west anom
-                fbparams[2].append(fb4param)
-                
-                fb4 = (T4 - t04) * fb4param
-            
-            #seasonal SW cycle
-            if seasonal:
-                S4=SW[3][0][t]
-            
-            if not B_param_indiv:
-                Bsouth=B
-                Asouth=A
-                
-            if mse_indiv:
-                mse_gamma = mse_gamma_s
-                mse_int = mse_int_s
-
-            atm_div = mse_gamma*(mse_mean - mse(T4)) + mse_int #old version gamma*(Tmean-T4)
-            #anomalous AHT term - increase poleward AHT with warming
-            #aaht = -(Tmean-Tmean0)*
-            
-            #to calibrate
-            if calib:
-                R= S4*(1-alpha4) - (Bsouth*(T4-273.15) + Asouth) + atm_div + co2[c] + fb4
-            #once equil found
-            else:
-                R= S4*(1-alpha4) - (Bsouth*(t04-273.15) + Asouth) + atm_div + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
-            
-            sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
-            div[3].append(atm_div)
-            circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
-            H4= 1/(Cp*rho*h4) * R
-            R4.append(R)
-        #    H3OLR.append(H3olr)
-        #    H3Latent.append(H3latent)
-        
-        ########################################################################
-            
-            
-            if agcm:
-                #no ocean transport!
-                ocean1 = 0
-                ocean2 = 0
-                ocean3 = 0
-                ocean4 = 0
-                #fixed ocean temps
-                T1=t01
-                T2=t02
-                T3=t03
-                T4=t04
-            elif slab:
-                #fixed ocean transport at equilibrium values
-                ocean1 = -36227431 
-                ocean2 = -164416748
-                ocean3 = 200642990
-                ocean4 = 1189
-            else:
-                #ocean transport, units T*m3/s
-                
-                # east feeding west with water not lost to ekman
-                ocean1 = q*(1-epsilon)*(T2-T1) 
-                #undercurrent (T5) feeding into east (T2)
-                ocean2 = q*(T5-T2) 
-                #east and west feeding north via ekman
-                ocean3 = q3*epsilon*(T2-T3) + q3*(1-epsilon)*(T1-T3) 
-                #east and west feeding south via ekman
-                ocean4 = q4*epsilon*(T2-T4) + q4*(1-epsilon)*(T1-T4) 
-                #undercurrent being fed by north and south, as average of two weighted by volumes of each
-                ocean5 = q3*(T3-T5) + q4*(T4-T5) #np.average( [q*(T3-T5), q2*(T4-T5)], weights=[M3,M4] ) 
-                
-                #temperature evolution equations
-                T1=T1 + dt/M1 * (M1*H1 + ocean1) 
-                T2=T2 + dt/M2 * (M2*H2 + ocean2 ) #+ nino[1][0][t] * dt/(3600*24*30)
-                T3=T3 + dt/M3 * (M3*H3 + ocean3) #+ (-0.04*dt/(3600*24*30)) #add cooling trend from upwelling of .02 deg/month
-                T4=T4 + dt/M4 * (M4*H4 + ocean4) #+ (-0.04*dt/(3600*24*30))
-                T5=T5 + dt/M5 * ocean5 
-            
-            dT1=T1-t1[0]
-            dT2=T2-t2[0]
-            dT3=T3-t3[0]
-            
+            Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2])
             if fb_adapt:
-                t1temp.append(T1) #every timestep of T1 to calc adaptive fb
-            
-            if (t+1)%500==0: #write out data every 1/12 of a year
-                t1.append(T1)
-                t2.append(T2)
-                t3.append(T3)
-                t4.append(T4)
-                t5.append(T5)
                 
-                ot[0].append(ocean1)
-                ot[1].append(ocean2)
-                ot[2].append(ocean3)
-                ot[3].append(ocean4)
-                ot[4].append(ocean5)
+                fb2param0=fb[i][1]
+                fb3param0=fb[i][2]
+                fb4param0=fb[i][3]
+                fbparams=[[fb2param0],[fb3param0],[fb4param0]]
+            for t in range(timesteps-1):
+                
+                
+                #define initial temps
+                if t==0: 
+                    T1=t01
+                    T2=t02
+                    T3=t03
+                    T4=t04
+                    T5=t05
+                    dT1=0 ; dT2=0; dT3=0; dT4=0
+                
                     
-        t1=np.asarray(t1)
-        t2=np.asarray(t2)
-        t3=np.asarray(t3)
-        t4=np.asarray(t4)
-        t5=np.asarray(t5)
-        
-        ocean.append( np.asarray(ot) )
-        
-        allT.append([t1,t2,t3,t4,t5])
-        allR.append([R1,R2,R3,R4])
-        
-    #####################################
-    # sensitivity
+                #ocean transport m3/s from tropics to extropics
+                #q=Ah*( np.average([T1,T2],weights=[M1,M2]) - T3 + Aw*(T1-T2) # for north
+                q=Ah*( np.average([T1,T2],weights=[M1,M2]) - np.average([T3,T4],weights=[M3,M4])) + Aw*(T1-T2)  #for north and south
+                #q2=Ah*( np.average([T1,T2],weights=[M1,M2]) - T4) + Aw*(T1-T2) #for south
+                #weight by volumes of extrop boxes
+    #            q = q*M3/(M3+M4)
+    #            q2 = q*M4/(M3+M4)
+                q4 = q*M4/(M3+M4)
+                q3 = q-q4
+                
+                
+                Tmean = 1/np.sum(weights)*(T1*weights[0] + T2*weights[1] + T3*weights[2] + T4*weights[3])
+                mse_mean = 1/np.sum(weights)*(mse(T1)*weights[0] + mse(T2)*weights[1] + mse(T3)*weights[2]
+                + mse(T4)*weights[3])
+            ###############################################################
+            ## BOX 1 ### WEST #############################################
+            ###############################################################
+                #fb param in west only depends on local temp
+                fb1 = (T1 - t01) * fb[i][0]
+                
+                #seasonal SW cycle
+                if seasonal:
+                    S1=SW[0][0][t]
+                    
+                if not B_param_indiv:
+                    Bwest=B
+                    Awest=A
+                
+                if mse_indiv:
+                    mse_gamma = mse_gamma_w
+                    mse_int = mse_int_w
+                    
+                atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int #old version gamma*(Tmean-T1)
+                #to calibrate equil state
+                if calib:
+                    R= S1*(1-alpha1) - (Bwest*(T1-273.15) + Awest) + atm_div + co2[c] + fb1
+                #once equil T found
+                else:
+                    R= S1*(1-alpha1) - (Bwest*(t01-273.15) + Awest) + atm_div + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
+                    
+                sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
+                div[0].append(atm_div)
+                circ[0].append(q*(1-epsilon)*(T2-T1))
+                H1= 1/(Cp*rho*h1) * R
+                R1.append(R)
+            #    H1OLR.append(H1olr)
+                
+            ###################################################################
+            #### BOX 2 ### EAST ############################################### 
+            ###################################################################        
+                
+                if not fb_adapt: #single regional feedback parameter
+                    #local feedback: (Tnow - T0) * lambda
+                    fb2 = (T2 - t02) * fb[i][1]
+                else:
+                    #feedback which becomes more neg with stronger box1 relative warming
+                    #effect from west has time delay of one month
+                    fb2param = fb2param0
+                    if t>501: #if a month has passed
+                        fb2param = fb2param - 0.69*(t1temp[(t-501)] - T2) #neg addition for pos west anom
+                    fbparams[0].append(fb2param)
+                    
+                    fb2 = (T2 - t02) * fb2param
+                
+                #seasonal SW cycle
+                if seasonal:
+                    S2=SW[1][0][t]
+                    
+                if not B_param_indiv:
+                    Beast=B
+                    Aeast=A
+                    
+                if mse_indiv:
+                    mse_gamma = mse_gamma_e
+                    mse_int = mse_int_e
+                
+                atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
+                #to calibrate
+                if calib:
+                    R= S2*(1-alpha2) - (Beast*(T2-273.15) + Aeast) + atm_div + co2[c] + fb2
+                #once equil found
+                else:
+                    R= S2*(1-alpha2) - (Beast*(t02-273.15) + Aeast) + atm_div + co2[c] + fb2 #+ nino[1][0][t]
+                    
+                sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
+                div[1].append(atm_div)
+                circ[1].append(q*(T4-T2))
+                H2= 1/(Cp*rho*h2) * R
+                R2.append(R)
+            #    H2OLR.append(H2olr)
+            
+            ########################################################################
+            #### BOX 3 ### NORTH ###################################################
+            ########################################################################
+            
+                if not fb_adapt:
+                    #local feedback: (Tnow - T0) * lambda
+                    fb3 = (T3 - t03) * fb[i][2]
+                else:
+                    #feedback which becomes more neg with stronger box1 relative warming
+                    #effect from west has time delay of four months
+                    fb3param = fb3param0 
+                    if t>2004: #if four months has passed
+                        fb3param = fb3param - 0.29*(t1temp[(t-2004)] - T3) #neg addition for pos west anom
+                    fbparams[1].append(fb3param)
+                    
+                    fb3 = (T3 - t03) * fb3param
+                
+                #seasonal SW cycle
+                if seasonal:
+                    S3=SW[2][0][t]
+                
+                if not B_param_indiv:
+                    Bnorth=B
+                    Anorth=A
+                if mse_indiv:
+                    mse_gamma = mse_gamma_n
+                    mse_int = mse_int_n
     
-    #totvol = M1+M2+M3
-    #weights=[M1/totvol,M2/totvol,M3/totvol]
-    #
-        Tmean = 1/np.sum(weights)*(t1*weights[0] + t2*weights[1] + t3*weights[2]+ t4*weights[3])
-        Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2] + t4[0]*weights[3])
-        Tmeandiff = Tmean - Tmean0
-        
-        meanT.append(np.round(Tmeandiff,decimals=2))
-#lam_eff = (1/Tmeandiff)*(lamdaTW*T1 + lamdaTE*T2 + lamdaET*T3)/3
-#Teff= -R/lam_eff     
+                atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int #old version gamma*(Tmean-T3)
+                #to calibrate
+                if calib:
+                    R= S3*(1-alpha3) - (Bnorth*(T3-273.15) + Anorth) + atm_div + co2[c] + fb3
+                #once equil found
+                else:
+                    R= S3*(1-alpha3) - (Bnorth*(t03-273.15) + Anorth) + atm_div + co2[c] + fb3 #+ nino[2][0][t]
+                
+                sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
+                div[2].append(atm_div)
+                circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
+                H3= 1/(Cp*rho*h3) * R
+                R3.append(R)
+            #    H3OLR.append(H3olr)
+            #    H3Latent.append(H3latent)
+            
+            ########################################################################
+            #### BOX 4 ### SOUTH ###################################################
+            ########################################################################
+            
+                if not fb_adapt:
+                    #local feedback: (Tnow - T0) * lambda
+                    fb4 = (T4 - t04) * fb[i][3]
+                else:
+                    #feedback which becomes more neg with stronger box1 anom & more pos with stronger box3 anom
+                    #effect from west has time delay of four months
+                    fb4param = fb4param0
+                    if t>2004: #if four months has passed
+                        fb4param = fb4param - 0.59*(t1temp[(t-2004)] - T4) #neg addition for pos west anom
+                    fbparams[2].append(fb4param)
+                    
+                    fb4 = (T4 - t04) * fb4param
+                
+                #seasonal SW cycle
+                if seasonal:
+                    S4=SW[3][0][t]
+                
+                if not B_param_indiv:
+                    Bsouth=B
+                    Asouth=A
+                    
+                if mse_indiv:
+                    mse_gamma = mse_gamma_s
+                    mse_int = mse_int_s
+    
+                atm_div = mse_gamma*(mse_mean - mse(T4)) + mse_int #old version gamma*(Tmean-T4)
+                #anomalous AHT term - increase poleward AHT with warming
+                #aaht = -(Tmean-Tmean0)*
+                
+                #to calibrate
+                if calib:
+                    R= S4*(1-alpha4) - (Bsouth*(T4-273.15) + Asouth) + atm_div + co2[c] + fb4
+                #once equil found
+                else:
+                    R= S4*(1-alpha4) - (Bsouth*(t04-273.15) + Asouth) + atm_div + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
+                
+                sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
+                div[3].append(atm_div)
+                circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
+                H4= 1/(Cp*rho*h4) * R
+                R4.append(R)
+            #    H3OLR.append(H3olr)
+            #    H3Latent.append(H3latent)
+            
+            ########################################################################
+                
+                
+                if agcm:
+                    #no ocean transport!
+                    ocean1 = 0
+                    ocean2 = 0
+                    ocean3 = 0
+                    ocean4 = 0
+                    #fixed ocean temps
+                    T1=t01
+                    T2=t02
+                    T3=t03
+                    T4=t04
+                elif slab:
+                    #fixed ocean transport at equilibrium values
+                    ocean1 = -36227431 
+                    ocean2 = -164416748
+                    ocean3 = 200642990
+                    ocean4 = 1189
+                else:
+                    #ocean transport, units T*m3/s
+                    
+                    # east feeding west with water not lost to ekman
+                    ocean1 = q*(1-epsilon)*(T2-T1) 
+                    #undercurrent (T5) feeding into east (T2)
+                    ocean2 = q*(T5-T2) 
+                    #east and west feeding north via ekman
+                    ocean3 = q3*epsilon*(T2-T3) + q3*(1-epsilon)*(T1-T3) 
+                    #east and west feeding south via ekman
+                    ocean4 = q4*epsilon*(T2-T4) + q4*(1-epsilon)*(T1-T4) 
+                    #undercurrent being fed by north and south, as average of two weighted by volumes of each
+                    ocean5 = q3*(T3-T5) + q4*(T4-T5) #np.average( [q*(T3-T5), q2*(T4-T5)], weights=[M3,M4] ) 
+                    
+                    #temperature evolution equations
+                    T1=T1 + dt/M1 * (M1*H1 + ocean1) 
+                    T2=T2 + dt/M2 * (M2*H2 + ocean2 ) #+ nino[1][0][t] * dt/(3600*24*30)
+                    T3=T3 + dt/M3 * (M3*H3 + ocean3) #+ (-0.04*dt/(3600*24*30)) #add cooling trend from upwelling of .02 deg/month
+                    T4=T4 + dt/M4 * (M4*H4 + ocean4) #+ (-0.04*dt/(3600*24*30))
+                    T5=T5 + dt/M5 * ocean5 
+                
+                dT1=T1-t1[0]
+                dT2=T2-t2[0]
+                dT3=T3-t3[0]
+                
+                if fb_adapt:
+                    t1temp.append(T1) #every timestep of T1 to calc adaptive fb
+                
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    t1.append(T1)
+                    t2.append(T2)
+                    t3.append(T3)
+                    t4.append(T4)
+                    t5.append(T5)
+                    
+                    ot[0].append(ocean1)
+                    ot[1].append(ocean2)
+                    ot[2].append(ocean3)
+                    ot[3].append(ocean4)
+                    ot[4].append(ocean5)
+                        
+            t1=np.asarray(t1)
+            t2=np.asarray(t2)
+            t3=np.asarray(t3)
+            t4=np.asarray(t4)
+            t5=np.asarray(t5)
+            
+            ocean.append( np.asarray(ot) )
+            
+            allT.append([t1,t2,t3,t4,t5])
+            allR.append([R1,R2,R3,R4])
+            
+        #####################################
 
+            Tmean = 1/np.sum(weights)*(t1*weights[0] + t2*weights[1] + t3*weights[2]+ t4*weights[3])
+            Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2] + t4[0]*weights[3])
+            Tmeandiff = Tmean - Tmean0
+            
+            meanT.append(np.round(Tmeandiff,decimals=2))
+    
+
+if calib:
+    tcheck()
 #%% write out data
     
-#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.meanT.200.npy',np.asarray(meanT))
-#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.allT.200.npy',np.asarray(allT))
+#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.150.npy',np.asarray(meanT))
+#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.150.npy',np.asarray(allT))
 
 #%% #########################################################################################
 ################ PLOTS - EVERYTHING BELOW HERE ARE VARIOUS PLOTS ############################
@@ -696,9 +721,9 @@ cmap = plt.get_cmap('jet')
 expcols=cmap(np.linspace(0,1,len(fb)))#
 expcols=['tab:blue','tab:orange','tab:green','tab:purple']
 
-plt.figure(0)
+plt.figure(0, figsize=(10,5))
 expnum=len(allT)
-plt.subplot(1,2,1)
+plt.subplot(1,3,1)
 for i in range(expnum):
     plt.plot(allT[i][0]-allT[i][1],color=expcols[i],label=co2[i]) # T1 - T2
 plt.title('Eq Gradient T1-T2')
@@ -707,13 +732,22 @@ plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).rou
 plt.xlabel('Years') 
 plt.legend()
 
-plt.subplot(1,2,2)
+plt.subplot(1,3,2)
 for i in range(expnum):
     plt.plot( (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i],label=co2[i]) # T1 - T2
 plt.title('Merid Gradient (T1+T2)/2 - (T3+T4)/2')
 plt.ylabel('Merid')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
+plt.legend()
+
+plt.subplot(1,3,3)
+for i in range(expnum):
+    plt.plot( allT[i][0]-allT[i][1], (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i],label=co2[i]) # T1 - T2
+plt.title('Merid vs Zonal')
+plt.ylabel('Merid')
+#plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.xlabel('Zonal') 
 plt.legend()
 #plt.legend(['6e15','8e15','12e15'])
 
@@ -810,26 +844,26 @@ plt.legend()
 #    plt.plot(circ[i],label=f"ocean circ into box{i+1}", color=expcols[i])
 #    plt.legend()
 
-#plt.figure(6)
-#plt.title("Ocean Transport")
-#expnum=len(ocean)
-#for i in range(expnum):
-#    plt.plot(ocean[i][0],color=expcols[i],label=exps[i])
-#    plt.plot(ocean[i][1],color=expcols[i])
-#    plt.plot(ocean[i][2],color=expcols[i])
-#    plt.plot(ocean[i][3],color=expcols[i])
-#    plt.plot(ocean[i][4],color=expcols[i])
-#
-#plt.annotate("Trop W",xy=(0,ocean[0][0][0]-0.3))
-#plt.annotate("Trop E",xy=(0,ocean[0][1][0]-0.3))
-#pltlen=int(len(ocean[0][0])-0.2*len(ocean[0][0]))
-#plt.annotate("Ex Trop N",xy=(pltlen,ocean[0][2][pltlen]))
-#plt.annotate("Ex Trop S",xy=(pltlen,ocean[0][3][pltlen]))
-#plt.annotate("UnderCurrent",xy=(0,ocean[0][4][pltlen]))
-#
-#plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
-#plt.xlabel('Years') 
-#plt.legend()
+plt.figure(6)
+plt.title("Ocean Transport")
+expnum=len(ocean)
+for i in range(expnum):
+    plt.plot(ocean[i][0],color=expcols[i],label=exps[i])
+    plt.plot(ocean[i][1],color=expcols[i])
+    plt.plot(ocean[i][2],color=expcols[i])
+    plt.plot(ocean[i][3],color=expcols[i])
+    plt.plot(ocean[i][4],color=expcols[i])
+
+plt.annotate("Trop W",xy=(0,ocean[0][0][0]-0.3))
+plt.annotate("Trop E",xy=(0,ocean[0][1][0]-0.3))
+pltlen=int(len(ocean[0][0])-0.2*len(ocean[0][0]))
+plt.annotate("Ex Trop N",xy=(pltlen,ocean[0][2][pltlen]))
+plt.annotate("Ex Trop S",xy=(pltlen,ocean[0][3][pltlen]))
+plt.annotate("UnderCurrent",xy=(0,ocean[0][4][pltlen]))
+
+plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.xlabel('Years') 
+plt.legend()
 
 #def logi(t1,t2):
 #    base=1/(1+np.exp(t2-t1+3))
@@ -844,13 +878,13 @@ plt.legend()
 #%% OPEN AND PLOT SENSITIVITY RUNS
 
 meanT=[]
-meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.200.npy') )
-#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.meanT.200.npy') )
+meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.150.npy') )
+#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.4wm2.meanT.150.npy') )
 #meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.8wm2.meanT.150.npy') )
 #meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.meanT.npy') )
 allT=[]
-allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.200.npy') )
-#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.allT.200.npy') )
+allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.150.npy') )
+#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.4wm2.allT.150.npy') )
 #allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.8wm2.allT.150.npy') )
 #allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.allT.npy') )
 
@@ -1111,7 +1145,7 @@ ax.set_zlabel('Box3 FB')
 fig.colorbar(cs)
     
 
-#%% meridional vs zonal T gradient
+#%% meridional vs zonal T gradient ###################################
 # lines colored by meanT at time
 # feedback params of three boxes given as color of scatters at end of line
 
@@ -1127,9 +1161,9 @@ exp=0 #co2 amount
 #for runs without seasonal variation
 zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
 meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - (allTmon[exp][i][2]+allTmon[exp][i][3])/2 for i in range(len(allTmon[exp])) ]
-if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
-    zonalgrad = zonalgrad[19:]
-    meridgrad = meridgrad[19:]
+#if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
+#    zonalgrad = zonalgrad[19:]
+#    meridgrad = meridgrad[19:]
 
 fig = plt.figure(figsize=(7,7))
 axs = fig.add_subplot()
@@ -1273,9 +1307,9 @@ exp=0
 #for runs without easonal variation
 zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
 meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - (allTmon[exp][i][2]+allTmon[exp][i][3])/2 for i in range(len(allTmon[exp])) ]
-if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
-    zonalgrad = zonalgrad[19:]
-    meridgrad = meridgrad[19:]
+#if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
+#    zonalgrad = zonalgrad[19:]
+#    meridgrad = meridgrad[19:]
     
 #for seasonal means
 #x0 = np.mean([zonalgrad[i][6] for i in range(216)]) #allT[exp][i][0][0] - allT[exp][i][1][0]
@@ -1322,24 +1356,29 @@ for i in range(4): # for each quadrant
 #    zonalstr=0 ; zonaleq=0 ; zonalweak=0  
 #    meridstr = 0 ; merideq=0 ; meridweak = 0
     for j in range(len(fb1quad)):
+        extropfb = np.average([fb3quad[j],fb4quad[j]], weights = [M3,M4])
+        tropfb = np.average([fb1quad[j],fb2quad[j]], weights = [M1,M2])
         if (fb1quad[j] > fb2quad[j]): # if box 1 param > box 2 param, col 1
-            if pctof( np.mean([fb3quad[j],fb4quad[j]]) , np.mean([fb1quad[j],fb2quad[j]]) ): #extrop~trop row 2
+            if pctof( extropfb , tropfb ): #extrop~trop row 2
                 arr[1,0] +=1
-            elif np.mean([fb3quad[j],fb4quad[j]]) < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop row 1
+            elif extropfb < tropfb: #extrop<trop row 1
                 arr[2,0] +=1
+                if i==2:
+                    print(fb1quad[j],fb2quad[j],fb3quad[j],fb4quad[j])
+                    print(extropfb - tropfb)
             else: #row 3
                 arr[0,0] +=1
         elif fb1quad[j] == fb2quad[j]: #col 2
-            if pctof( np.mean([fb3quad[j],fb4quad[j]]) , np.mean([fb1quad[j],fb2quad[j]]) ): #extrop~trop row 2
+            if pctof( extropfb , tropfb ): #extrop~trop row 2
                 arr[1,1] +=1
-            elif np.mean([fb3quad[j],fb4quad[j]]) < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
+            elif extropfb < tropfb: #extrop<trop
                 arr[2,1] +=1
             else:
                 arr[0,1] +=1
         elif (fb1quad[j] < fb2quad[j]): # if box 3 param > avg of box1&2 col 3
-            if pctof(np.mean([fb3quad[j],fb4quad[j]]),np.mean([fb1quad[j],fb2quad[j]]) ): #extrop~trop row 2
+            if pctof( extropfb ,tropfb ): #extrop~trop row 2
                 arr[1,2] +=1
-            elif np.mean([fb3quad[j],fb4quad[j]]) < np.mean([fb1quad[j],fb2quad[j]]): #extrop<trop
+            elif extropfb < tropfb: #extrop<trop
                 arr[2,2] +=1
             else:
                 arr[0,2] +=1
@@ -1772,11 +1811,14 @@ plt.xlabel('Years')
 plt.ylabel('mean T')
     
 #%% zonal
-    
+plt.figure()
 zonalgrad = [ allT[i][0] - allT[i][1] for i in range(len(allT)) ]
 
+cmap = plt.get_cmap('bwr')
+wcolors=cmap(np.linspace(0,1,len(changed)))
+
 for i in range(len(allT)):
-    plt.plot( zonalgrad[i], color=mcolors[i] )
+    plt.plot( zonalgrad[i], color=wcolors[i] )
 
 #plt.ylim([0,5])
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -1784,21 +1826,24 @@ plt.xlabel('Years')
 plt.title('West-East Pac',fontsize=15)
 
 #%% meridional
-
+plt.figure()
 extrop = [ (allT[i][2]*M3 + allT[i][3]*M4)/(M3+M4) for i in range(len(allT)) ]
 meridgrad = [ (allT[i][0] + allT[i][1])/2 - extrop[i] for i in range(len(allT)) ]
 
 for i in range(len(allT)):
-    plt.plot( meridgrad[i], color=mcolors[i] )
+    plt.plot( meridgrad[i], color=wcolors[i] )
 
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years') 
 plt.title('Trop-ExTrop Pac',fontsize=15)
 
 #%% zonal vs meridional
+zonalgrad = [ allT[i][0] - allT[i][1] for i in range(len(allT)) ]
+extrop = [ (allT[i][2]*M3 + allT[i][3]*M4)/(M3+M4) for i in range(len(allT)) ]
+meridgrad = [ (allT[i][0] + allT[i][1])/2 - extrop[i] for i in range(len(allT)) ]
 
 for i in range(len(allT)):
-    plt.plot( zonalgrad[i], meridgrad[i], color=mcolors[i] )
+    plt.plot( zonalgrad[i], meridgrad[i], color=wcolors[i] )
     
 plt.xlabel('Zonal gradient [K]', fontsize=14)
 plt.ylabel('Meridional gradient [K]', fontsize=14)
@@ -1968,21 +2013,21 @@ plt.title('Box model - CMIP6 mean regional temp difference')
 plt.figure(1)
 plt.title("Temperatures")
 cmap = plt.get_cmap('Blues')
-wcolors=cmap(np.linspace(0,1,len(fb)))
-cmap = plt.get_cmap('Reds')
-ecolors=cmap(np.linspace(0,1,len(fb)))
-cmap = plt.get_cmap('Greens') 
-scolors=cmap(np.linspace(0,1,len(fb))) 
-cmap = plt.get_cmap('Purples')
-ncolors=cmap(np.linspace(0,1,len(fb)))
-cmap = plt.get_cmap('Oranges') 
-ucolors=cmap(np.linspace(0,1,len(fb)))  
+#wcolors=cmap(np.linspace(0,1,len(changed)))
+#cmap = plt.get_cmap('Reds')
+#ecolors=cmap(np.linspace(0,1,len(changed)))
+#cmap = plt.get_cmap('Greens') 
+#scolors=cmap(np.linspace(0,1,len(changed))) 
+#cmap = plt.get_cmap('Purples')
+#ncolors=cmap(np.linspace(0,1,len(changed)))
+#cmap = plt.get_cmap('Oranges') 
+#ucolors=cmap(np.linspace(0,1,len(changed)))  
 for i in range(len(fb)):
-#    plt.plot(allT[0][i][0] - t01,color='tab:blue', alpha= 0.6)
-#    plt.plot(allT[0][i][1] - t02,color='tab:purple', alpha= 0.6)
-#    plt.plot(allT[0][i][2] - t03,color='tab:red', alpha= 0.6)
-#    plt.plot(allT[0][i][3] - t04,color='tab:orange', alpha= 0.6)
-#    plt.plot(allT[0][i][4] - t05,color='tab:green', alpha= 0.6)
+#    plt.plot(allT[i][0] - t01,color=wcolors[i], alpha= 0.8)
+#    plt.plot(allT[i][1] - t02,color=ecolors[i], alpha= 0.8)
+#    plt.plot(allT[i][2] - t03,color=ncolors[i], alpha= 0.8)
+#    plt.plot(allT[i][3] - t04,color=scolors[i], alpha= 0.8)
+#    plt.plot(allT[i][4] - t05,color=ucolors[i], alpha= 0.8)
     plt.plot(allT[i][0] - t01,color='tab:blue', alpha= 0.6)
     plt.plot(allT[i][1] - t02,color='tab:purple', alpha= 0.6)
     plt.plot(allT[i][2] - t03,color='tab:red', alpha= 0.6)
@@ -1993,3 +2038,25 @@ for i in range(len(fb)):
 plt.xticks(ticks=np.linspace(0,len(allT[0][0][:]),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years',fontsize=14) 
 plt.legend(labels=['west','east','north','south','under'],fontsize=14)
+
+#%% sensitivity of Ah or Aw
+cmap = plt.get_cmap('coolwarm')
+wcolors=cmap(np.linspace(0,1,len(changed)))
+
+zonalgrad = [ allT[i][0] - allT[i][1] for i in range(len(allT)) ]
+extrop = [ (allT[i][2]*M3 + allT[i][3]*M4)/(M3+M4) for i in range(len(allT)) ]
+meridgrad = [ (allT[i][0] + allT[i][1])/2 - extrop[i] for i in range(len(allT)) ]
+
+
+awvalues = [      0.,  200000.,  400000.,  600000.,  800000., 1000000.,
+       1200000., 1400000., 1600000., 1800000., 2000000.]
+
+for i in range(len(allT)):
+    plt.scatter( awvalues[i], zonalgrad[i][-1] , color = wcolors[i] )
+    
+plt.xlabel('Aw', fontsize=14)
+plt.ylabel('150yr Zonal Gradient [K]', fontsize=14)
+plt.title('Zonal gradient as function of Aw value', fontsize=14)
+plt.xticks(fontsize=14)
+plt.yticks(fontsize=14)
+    
