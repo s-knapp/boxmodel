@@ -58,15 +58,15 @@ RH=0.8; # relative humidity in tropics
 RHet=0.7 # relative humidity in ex tropics? probably not, looks the same
 epsil=0.622; # ration of mass or vapour to dry air
 mse_gamma = 0.001581 # W/m2 / J/kg
-mse_gamma_w = 0.000050 #0.001081 #0.005294 #all these custom regression mse do not work well. they are now manually set
-mse_gamma_e = -0.000042 #0.006500 #0.006529 #0.001581
-mse_gamma_n = 0.000437 #0.001081 #0.002115 #0.001581
-mse_gamma_s = 0.000407 #0.001381 #0.001724 #0.001581 #
+mse_gamma_w = 0.002081 #0.001081 #0.005294 #all these custom regression mse do not work well. they are now manually set
+mse_gamma_e = 0.002081 #-0.000042 #0.006500 #0.006529 #0.001581
+mse_gamma_n = 0.000581 #0.001081 #0.002115 #0.001581
+mse_gamma_s = 0.031981 #0.001381 #0.001724 #0.001581 #
 mse_int = -9.56 #-9.56 #intercept for mse regression
-mse_int_w = -47 #-18 #-7 #43.12 #-7
-mse_int_e = -38 #50 #-9 #56.26 #-11
-mse_int_n = -45 #-44 #-36.79 #-47#-26
-mse_int_s = -55 #-51 #-38.1 #-54#-36
+mse_int_w = 0 #-18 #-7 #43.12 #-7
+mse_int_e = -15 #50 #-9 #56.26 #-11
+mse_int_n = -43 #-44 #-36.79 #-47#-26
+mse_int_s = -53 #-51 #-38.1 #-54#-36
 #regression done on Cheyenne notebook mse_aht_regression.ipynb
 #used only 65S-65N
 
@@ -166,6 +166,15 @@ weights=[M1/totvol,M2/totvol,M3/totvol,M4/totvol]
 ###########################################################
 ###################FUNCTIONS#################################
 ###########################################################
+
+def linchange(y1,y2,x1change,x2change, x):
+    # create line between two points, (x1change,y1) and (x2change,y2)
+    # returns a function which will return y for a given x
+    slope = (y2-y1)/(x2change-x1change)
+    intercept = y1 - slope*x1change
+    
+    
+    return slope*x + intercept
 
 def es(t):
     t-=273.15
@@ -289,42 +298,61 @@ mcolors = ['red', 'red', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'bl
            'blue', 'red', 'blue', 'blue', 'blue', 'blue', 'blue', 'red', 'red', 'red']
 
 #### generate sensitivity based on cmip fb ranges with 4 values for each region #####
-cfb = []
-r1 = [ fb[i][0] for i in range(len(fb)) ] #fb param of first box
-r2 = [ fb[i][1] for i in range(len(fb)) ]
-r3 = [ fb[i][2] for i in range(len(fb)) ]
-r4 = [ fb[i][3] for i in range(len(fb)) ]
-buffer = 0.5 #extra value to add to min/max of each range
+# cfb = []
+# r1 = [ fb[i][0] for i in range(len(fb)) ] #fb param of first box
+# r2 = [ fb[i][1] for i in range(len(fb)) ]
+# r3 = [ fb[i][2] for i in range(len(fb)) ]
+# r4 = [ fb[i][3] for i in range(len(fb)) ]
+# buffer = 0.5 #extra value to add to min/max of each range
 
-for i in np.linspace(min(r1) - buffer, max(r1) + buffer, 4):
-    for j in np.linspace(min(r2) - buffer, max(r2) + buffer, 4):
-        for k in np.linspace(min(r3) - buffer, max(r3) + buffer, 4):
-            for l in np.linspace(min(r4) - buffer, max(r4) + buffer, 4):
-                cfb.append([i,j,k,l]) 
+# for i in np.linspace(min(r1) - buffer, max(r1) + buffer, 4):
+#     for j in np.linspace(min(r2) - buffer, max(r2) + buffer, 4):
+#         for k in np.linspace(min(r3) - buffer, max(r3) + buffer, 4):
+#             for l in np.linspace(min(r4) - buffer, max(r4) + buffer, 4):
+#                 cfb.append([i,j,k,l]) 
 #                
 #fb = cfb
 ####################
 #loop to make fb iterations
 # total combinations of n numbers in sequence r long is n**r
+# 6**3 = 216, 5**4 = 625
 
-#fb = []
-#
-#step = 1
-#fb_low = -4
-#fb_high = 1
-#
-#for i in np.arange(fb_low,fb_high+step,step):
-#    for j in np.arange(fb_low,fb_high+step,step):
-#        for k in np.arange(fb_low,fb_high+step,step):
-#            fb.append([i,j,k,k]) #using same param for north/south
+# fb = []
 
+# step = 1
+# fb_low = -2
+# fb_high = 2
+
+# for i in np.arange(fb_low,fb_high+step,step):
+#     for j in np.arange(fb_low,fb_high+step,step):
+#         for k in np.arange(fb_low,fb_high+step,step):
+#             # fb.append([i,j,k,k]) #using same param for north/south
+#             for s in np.arange(fb_low,fb_high+step,step):
+#                 fb.append([i,j,k,s])
+
+#non uniform fb range
+# fb = []
+
+# fbrange = [-2,-1,1,2]
+
+# for i in fbrange:
+#     for j in fbrange:
+#         for k in fbrange:
+#             # fb.append([i,j,k,k]) #using same param for north/south
+#             for s in fbrange:
+#                 fb.append([i,j,k,s])
+                
 ###########################
 
 #cmip6 mean fb
-fb = [ np.mean( np.asarray(fb), axis=0 ) ]
+# fb = [ np.mean( np.asarray(fb), axis=0 ) ]
+# fb = [ [-1.27, 2.27, -2.0, 0.83] ]
+fb = [ [-1.63, 2.62, -1.72, 0.14]]
+# fb=[[-1,-1,-1,-1]]
 #fb = [[-1.1051, -0.8333, -1.99907, -1.5852]]
 #fb = [ [min(r1) - buffer, max(r2) + buffer, max(r3) + buffer, max(r4) + buffer] ]
 
+###########################
 #CO2 FORCING AS A CONSTANT EVERYWHERE
 co2 = [8] #w/m2 4~2xCO2, 8~4xCO2, 12~8xCO2
 
@@ -334,7 +362,7 @@ calib = False #true to enable temp based regional fb, only use with other fb set
 if calib: #set other prescribed fb to 0 to allow temp based regional fb to work
     fb=[[0,0,0,0]]
     co2 = [0] #w/m2 
-
+# fb = [[-4,4,-2,-2]]
 ##########################
 fb_adapt=False #make this true to use feedbacks which change based on local and warm pool temp anoms
 if fb_adapt:
@@ -368,11 +396,24 @@ def tcheck():
     print("T4",np.round(T4-obst4,decimals=2))
 
 #init temps for mean annual CERES SW and tuned mse intercept
-t01=302.47 #302.3 #302.238 #302.65 
-t02=299.23 #299.5 #299.507 #299.21 
-t03=293.94 #293.8 #293.728 #292.28 
-t04=295.48 #295.11 #295.013 #294.56 
-t05=294.66 #294.328 #293.4 
+### remember to get new control ocean values when retuning ###
+t01=301.57 #302.47 #302.3 #302.238 #302.65 
+t02=298.53 #299.23 #299.5 #299.507 #299.21 
+t03=293.16 #293.94 #293.8 #293.728 #292.28 
+t04=294.62 #295.48 #295.11 #295.013 #294.56 
+t05=293.83 #294.66 #294.328 #293.4 
+
+# initial ocean convergence values
+ot01= -12.018575192140514 #W/m2
+ot02= -35.772093721373444
+ot03= 13.489698008868267
+ot04= 10.660383884555761
+ot05= -6.5e-7
+# initial atmos convergence values
+atm01=-45.20824916692165
+atm02=-39.06954631263214
+atm03=-40.713608945770446
+atm04=-52.755227482917775
 
 #init temps for 5 boxes, w/ observed CERES SW and tuned mse intercept
 #if seasonal:
@@ -385,28 +426,60 @@ t05=294.66 #294.328 #293.4
 zongrad0=t01-t02
 norgrad0=(t01+t02)/2 - t03
 sougrad0=(t01+t02)/2 - t04
-#%% MAIN LOOP
 
+#%% MAIN LOOP
+if calib:
+    print('CALIBRATION RUN')
 #array for temps from all experiments, is appended automatically for each new exp
 allT=[]
 meanT=[]
 allLatent=[]
 allR=[]
 ocean=[]
+atmosdiv=[]
+totfb=[]
 
-for itr in range(1): #decide what length you want to run for any parameter suite
+changenum = 3
+for itr in range(changenum): #decide what length you want to run for any parameter suite
     
-    param0 = 3.6e6
-    delta = param0 * 0.2
+    param0 = 14009760591807300
+#    delta = param0 * 0.2
     
-    changed = np.arange( param0 - 5*delta, param0 + 5*delta + 0.01, delta)
-    
+#    changed = np.arange( param0 - 5*delta, param0 + 5*delta + 0.01, delta)
+    changed = [param0/8, param0, param0*8]
+
 #    Ah = changed[itr]
+    M5 = changed[itr]
+    
     
     for c in range(len(co2)): #for each co2 forcing
         
     
         for i in range(len(fb)): #for each feedback set
+        
+            if fb_adapt:
+                print(f"{i+1} of {len(fb)} fb_adapt ON")
+            else:
+                print(f"{(i+1)*(itr+1)*(c+1) } of {len(fb)*len(co2)*changenum} fb={fb[i]}")
+                
+            #for sens, write out in between 
+            if i==128:
+                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.meanT.150yr.0-127.npy',np.asarray(meanT))
+                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.allT.150yr.0-127.npy',np.asarray(allT))
+                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.atmdiv.150yr.0-127.npy',np.asarray(atmosdiv))
+                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.oceandiv.150yr.0-127.npy',np.asarray(ocean))
+                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.totfb.150yr.0-127.npy',np.asarray(totfb))
+                
+                #after writing out, reset all arrays to free memory
+                allT=[]
+                meanT=[]
+                allLatent=[]
+                allR=[]
+                ocean=[]
+                atmosdiv=[]
+                totfb=[]
+                
+                print("files saved and arrays reset")
             
             t1=[t01]
             t2=[t02]
@@ -420,8 +493,9 @@ for itr in range(1): #decide what length you want to run for any parameter suite
             sw=[[],[],[],[]]; lw=[[],[],[],[]]; div=[[],[],[],[]]
             circ=[[],[],[],[]]
             ot=[[],[],[],[],[]]
+            tempfb=[[],[],[],[]]
         
-            Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2])
+            Tmean0 = (t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2] + t4[0]*weights[3])
             if fb_adapt:
                 
                 fb2param0=fb[i][1]
@@ -481,6 +555,7 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                 else:
                     R= S1*(1-alpha1) - (Bwest*(t01-273.15) + Awest) + atm_div + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
                     
+                tempfb[0].append( fb1 )
                 sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
                 div[0].append(atm_div)
                 circ[0].append(q*(1-epsilon)*(T2-T1))
@@ -496,14 +571,30 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                     #local feedback: (Tnow - T0) * lambda
                     fb2 = (T2 - t02) * fb[i][1]
                 else:
-                    #feedback which becomes more neg with stronger box1 relative warming
-                    #effect from west has time delay of one month
-                    fb2param = fb2param0
-                    if t>501: #if a month has passed
-                        fb2param = fb2param - 0.69*(t1temp[(t-501)] - T2) #neg addition for pos west anom
-                    fbparams[0].append(fb2param)
+                    # feedback param based on cmip6 mean trends. two values and a linear change between them
+                    # change happens at a local delta T, as seen in cmip6 data
+                    # fbparam21 = -1.33
+                    # fbparam22 = 2.27
                     
-                    fb2 = (T2 - t02) * fb2param
+                    # x1change = 3.0 # local delta T to start change of fb param
+                    # x2change = 4.2 # end of change
+                    
+                    # localdT = T2 - t02
+                    
+                    # if localdT < x1change:
+                    #     fbparam2 = fbparam21
+                    # elif localdT > x2change:
+                    #     fbparam2 = fbparam22
+                    # else:
+                    #     fbparam2 = linchange( fbparam21, fbparam22, x1change, x2change, localdT)
+                    
+                    # fb2 = (T2 - t02) * fbparam2
+                    
+                    # try lambda1 * dt_local + lambda2 * (dt_west - dt_local)
+                    fbparam21 = -1.236
+                    fbparam22 = -9.846
+                    fbparam23 = 8.24
+                    fb2 = fbparam21 * (T2 - t02) + fbparam22 * ( (T1-t01) - (T2-t02) ) #+ fbparam23
                 
                 #seasonal SW cycle
                 if seasonal:
@@ -524,7 +615,8 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                 #once equil found
                 else:
                     R= S2*(1-alpha2) - (Beast*(t02-273.15) + Aeast) + atm_div + co2[c] + fb2 #+ nino[1][0][t]
-                    
+                
+                tempfb[1].append( fb2 )
                 sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
                 div[1].append(atm_div)
                 circ[1].append(q*(T4-T2))
@@ -542,12 +634,30 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                 else:
                     #feedback which becomes more neg with stronger box1 relative warming
                     #effect from west has time delay of four months
-                    fb3param = fb3param0 
-                    if t>2004: #if four months has passed
-                        fb3param = fb3param - 0.29*(t1temp[(t-2004)] - T3) #neg addition for pos west anom
-                    fbparams[1].append(fb3param)
+                    # feedback param based on cmip6 mean trends. two values and a linear change between them
+                    # change happens at a local delta T, as seen in cmip6 data
+                    # fbparam31 = -0.67
+                    # fbparam32 = -2.0
                     
-                    fb3 = (T3 - t03) * fb3param
+                    # x1change = 3.3 # local delta T to start change of fb param
+                    # x2change = 4.5 # end of change
+                    
+                    # localdT = T3 - t03
+                    
+                    # if localdT < x1change:
+                    #     fbparam3 = fbparam31
+                    # elif localdT > x2change:
+                    #     fbparam3 = fbparam32
+                    # else:
+                    #     fbparam3 = linchange( fbparam31, fbparam32, x1change, x2change, localdT)
+                    
+                    # fb3 = (T3 - t03) * fbparam3
+                    
+                    # try lambda1 * dt_local + lambda2 * (dt_west - dt_local)
+                    fbparam31 = -1.188
+                    fbparam32 = -3.897
+                    fbparam33 = 7.083
+                    fb3 = fbparam31 * (T3 - t03) + fbparam32 * ((T1-t01) - (T3-t03)) #+ fbparam33
                 
                 #seasonal SW cycle
                 if seasonal:
@@ -568,6 +678,7 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                 else:
                     R= S3*(1-alpha3) - (Bnorth*(t03-273.15) + Anorth) + atm_div + co2[c] + fb3 #+ nino[2][0][t]
                 
+                tempfb[2].append( fb3 )
                 sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
                 div[2].append(atm_div)
                 circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
@@ -584,14 +695,30 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                     #local feedback: (Tnow - T0) * lambda
                     fb4 = (T4 - t04) * fb[i][3]
                 else:
-                    #feedback which becomes more neg with stronger box1 anom & more pos with stronger box3 anom
-                    #effect from west has time delay of four months
-                    fb4param = fb4param0
-                    if t>2004: #if four months has passed
-                        fb4param = fb4param - 0.59*(t1temp[(t-2004)] - T4) #neg addition for pos west anom
-                    fbparams[2].append(fb4param)
+                    # feedback param based on cmip6 mean trends. two values and a linear change between them
+                    # change happens at a local delta T, as seen in cmip6 data
+                    # fbparam41 = -2.82
+                    # fbparam42 = 0.83
                     
-                    fb4 = (T4 - t04) * fb4param
+                    # x1change = 1.8 # local delta T to start change of fb param
+                    # x2change = 3.0 # end of change
+                    
+                    # localdT = T4 - t04
+                    
+                    # if localdT < x1change:
+                    #     fbparam4 = fbparam41
+                    # elif localdT > x2change:
+                    #     fbparam4 = fbparam42
+                    # else:
+                    #     fbparam4 = linchange( fbparam41, fbparam42, x1change, x2change, localdT)
+                    
+                    # fb4 = (T4 - t04) * fbparam4
+                    
+                    # try lambda1 * dt_local + lambda2 * (dt_west - dt_local)
+                    fbparam41 = -0.557
+                    fbparam42 = -4.725
+                    fbparam43 = 7.877
+                    fb4 = fbparam41 * (T4 - t04) + fbparam42 * ((T1-t01) - (T4-t04)) #+ fbparam43
                 
                 #seasonal SW cycle
                 if seasonal:
@@ -616,6 +743,7 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                 else:
                     R= S4*(1-alpha4) - (Bsouth*(t04-273.15) + Asouth) + atm_div + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
                 
+                tempfb[3].append( fb4 )
                 sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
                 div[3].append(atm_div)
                 circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
@@ -660,10 +788,17 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                     
                     #temperature evolution equations
                     T1=T1 + dt/M1 * (M1*H1 + ocean1) 
-                    T2=T2 + dt/M2 * (M2*H2 + ocean2 ) #+ nino[1][0][t] * dt/(3600*24*30)
+                    T2=T2 + dt/M2 * (M2*H2 + ocean2) #+ nino[1][0][t] * dt/(3600*24*30)
                     T3=T3 + dt/M3 * (M3*H3 + ocean3) #+ (-0.04*dt/(3600*24*30)) #add cooling trend from upwelling of .02 deg/month
                     T4=T4 + dt/M4 * (M4*H4 + ocean4) #+ (-0.04*dt/(3600*24*30))
                     T5=T5 + dt/M5 * ocean5 
+                    
+                    #get ocean heat transport in W/m2
+                    o1wm2 = ocean1/M1 * (Cp*rho*h1)
+                    o2wm2 = ocean2/M2 * (Cp*rho*h2)
+                    o3wm2 = ocean3/M3 * (Cp*rho*h3)
+                    o4wm2 = ocean4/M4 * (Cp*rho*h4)
+                    o5wm2 = ocean5/M5 * (Cp*rho*underdepth)
                 
                 dT1=T1-t1[0]
                 dT2=T2-t2[0]
@@ -672,34 +807,42 @@ for itr in range(1): #decide what length you want to run for any parameter suite
                 if fb_adapt:
                     t1temp.append(T1) #every timestep of T1 to calc adaptive fb
                 
-                if (t+1)%500==0: #write out data every 1/12 of a year
-                    t1.append(T1)
-                    t2.append(T2)
-                    t3.append(T3)
-                    t4.append(T4)
-                    t5.append(T5)
-                    
-                    ot[0].append(ocean1)
-                    ot[1].append(ocean2)
-                    ot[2].append(ocean3)
-                    ot[3].append(ocean4)
-                    ot[4].append(ocean5)
-                        
+                # if (t+1)%500==0: #write out data every 1/12 of a year
+                t1.append(T1)
+                t2.append(T2)
+                t3.append(T3)
+                t4.append(T4)
+                t5.append(T5)
+                
+                ot[0].append(o1wm2)
+                ot[1].append(o2wm2)
+                ot[2].append(o3wm2)
+                ot[3].append(o4wm2)
+                ot[4].append(o5wm2)
+            
             t1=np.asarray(t1)
             t2=np.asarray(t2)
             t3=np.asarray(t3)
             t4=np.asarray(t4)
             t5=np.asarray(t5)
             
+#            if itr !=2: #for runs of different lengths, add nan to previous runs to equalize lengths
+#                t1 = np.append(t1, np.zeros(len(t1)) + np.nan)
+#                t2 = np.append(t2, np.zeros(len(t2)) + np.nan)
+#                t3 = np.append(t3, np.zeros(len(t3)) + np.nan)
+#                t4 = np.append(t4, np.zeros(len(t4)) + np.nan)
+#                t5 = np.append(t5, np.zeros(len(t5)) + np.nan)
+                
             ocean.append( np.asarray(ot) )
-            
+            totfb.append( np.array(tempfb) )
             allT.append([t1,t2,t3,t4,t5])
             allR.append([R1,R2,R3,R4])
+            atmosdiv.append(np.asarray(div))
             
         #####################################
 
-            Tmean = 1/np.sum(weights)*(t1*weights[0] + t2*weights[1] + t3*weights[2]+ t4*weights[3])
-            Tmean0 = 1/np.sum(weights)*(t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2] + t4[0]*weights[3])
+            Tmean = (t1*weights[0] + t2*weights[1] + t3*weights[2]+ t4*weights[3])
+            Tmean0 = (t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2] + t4[0]*weights[3])
             Tmeandiff = Tmean - Tmean0
             
             meanT.append(np.round(Tmeandiff,decimals=2))
@@ -707,10 +850,27 @@ for itr in range(1): #decide what length you want to run for any parameter suite
 
 if calib:
     tcheck()
+    print(f"t01={T1}")
+    print(f"t02={T2}")
+    print(f"t03={T3}")
+    print(f"t04={T4}")
+    print(f"t05={T5}")
+    print(f"atm01={atmosdiv[0][0][-1]}")
+    print(f"atm02={atmosdiv[0][1][-1]}")
+    print(f"atm03={atmosdiv[0][2][-1]}")
+    print(f"atm04={atmosdiv[0][3][-1]}")
+    print(f"ot01={ocean[0][0][-1]}")
+    print(f"ot02={ocean[0][1][-1]}")
+    print(f"ot03={ocean[0][2][-1]}")
+    print(f"ot04={ocean[0][3][-1]}")
+    print(f"ot05={ocean[0][4][-1]}")
 #%% write out data
     
-#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.150.npy',np.asarray(meanT))
-#np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.150.npy',np.asarray(allT))
+# np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.meanT.150yr.128-256.npy',np.asarray(meanT))
+# np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.allT.150yr.128-256.npy',np.asarray(allT))
+# np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.atmdiv.150yr.128-256.npy',np.asarray(atmosdiv))
+# np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.oceandiv.150yr.128-256.npy',np.asarray(ocean))
+# np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.totfb.150yr.128-256.npy',np.asarray(totfb))
 
 #%% #########################################################################################
 ################ PLOTS - EVERYTHING BELOW HERE ARE VARIOUS PLOTS ############################
@@ -725,7 +885,7 @@ plt.figure(0, figsize=(10,5))
 expnum=len(allT)
 plt.subplot(1,3,1)
 for i in range(expnum):
-    plt.plot(allT[i][0]-allT[i][1],color=expcols[i],label=co2[i]) # T1 - T2
+    plt.plot(allT[i][0]-allT[i][1],color=expcols[i]) # T1 - T2
 plt.title('Eq Gradient T1-T2')
 plt.ylabel('T1-T2')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -734,7 +894,7 @@ plt.legend()
 
 plt.subplot(1,3,2)
 for i in range(expnum):
-    plt.plot( (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i],label=co2[i]) # T1 - T2
+    plt.plot( (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i]) # T1 - T2
 plt.title('Merid Gradient (T1+T2)/2 - (T3+T4)/2')
 plt.ylabel('Merid')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -743,7 +903,7 @@ plt.legend()
 
 plt.subplot(1,3,3)
 for i in range(expnum):
-    plt.plot( allT[i][0]-allT[i][1], (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i],label=co2[i]) # T1 - T2
+    plt.plot( allT[i][0]-allT[i][1], (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i]) # T1 - T2
 plt.title('Merid vs Zonal')
 plt.ylabel('Merid')
 #plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -756,11 +916,11 @@ plt.figure(1)
 plt.title("Temperatures")
 expnum=len(allT)
 for i in range(expnum):
-    plt.plot(allT[i][0],color=expcols[i],label=co2[0])
-    plt.plot(allT[i][1],color=expcols[i])
-    plt.plot(allT[i][2],color=expcols[i])
-    plt.plot(allT[i][3],color=expcols[i])
-    plt.plot(allT[i][4],color=expcols[i])
+    plt.plot(allT[i][0] - t01,color=expcols[i],label=co2[0])
+    plt.plot(allT[i][1] - t02,color=expcols[i])
+    plt.plot(allT[i][2] - t03,color=expcols[i])
+    plt.plot(allT[i][3] - t04,color=expcols[i])
+    plt.plot(allT[i][4] - t05,color=expcols[i])
 
 plt.annotate("Trop W",xy=(0,allT[0][0][0]-0.3))
 plt.annotate("Trop E",xy=(0,allT[0][1][0]-0.3))
@@ -810,18 +970,18 @@ plt.legend()
 plt.figure(4)
 plt.title('Atm Div')
 plt.xlabel('Years') 
-expnum=len(allR)
+expnum=len(atmosdiv)
 for i in range(expnum):
-    plt.plot(div[0],color=expcols[i],label=co2[0])
-    plt.plot(div[1],color=expcols[i])
-    plt.plot(div[2],color=expcols[i])
-    plt.plot(div[3],color=expcols[i])
+    plt.plot(atmosdiv[i][0],label='West')
+    plt.plot(atmosdiv[i][1],label='East')
+    plt.plot(atmosdiv[i][2],label='North')
+    plt.plot(atmosdiv[i][3],label='South')
     
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
-plt.annotate("Trop W",xy=(0,div[0][0]-0.3))
-plt.annotate("Trop E",xy=(0,div[1][0]-0.3))
-plt.annotate("Ex Trop N",xy=(0,div[2][10000]))
-plt.annotate("Ex Trop S",xy=(0,div[3][10000]))
+# plt.annotate("Trop W",xy=(0,div[0][0]-0.3))
+# plt.annotate("Trop E",xy=(0,div[1][0]-0.3))
+# plt.annotate("Ex Trop N",xy=(0,div[2][10000]))
+# plt.annotate("Ex Trop S",xy=(0,div[3][10000]))
 
 plt.legend()
 
@@ -844,50 +1004,324 @@ plt.legend()
 #    plt.plot(circ[i],label=f"ocean circ into box{i+1}", color=expcols[i])
 #    plt.legend()
 
-plt.figure(6)
-plt.title("Ocean Transport")
+plt.figure(6,figsize=(7,6))
+if fb_adapt:
+    plt.title("λ=coupled",weight='bold',fontsize=13)
+else:
+    plt.title(f"λ={fb[0]}",weight='bold',fontsize=13)
 expnum=len(ocean)
 for i in range(expnum):
-    plt.plot(ocean[i][0],color=expcols[i],label=exps[i])
-    plt.plot(ocean[i][1],color=expcols[i])
-    plt.plot(ocean[i][2],color=expcols[i])
-    plt.plot(ocean[i][3],color=expcols[i])
-    plt.plot(ocean[i][4],color=expcols[i])
+    plt.plot(ocean[i][0],label='West')
+    plt.plot(ocean[i][1],label='East')
+    plt.plot(ocean[i][2],label='North')
+    plt.plot(ocean[i][3],label='South')
+    plt.plot(ocean[i][4],label='Undercurrent')
 
-plt.annotate("Trop W",xy=(0,ocean[0][0][0]-0.3))
-plt.annotate("Trop E",xy=(0,ocean[0][1][0]-0.3))
-pltlen=int(len(ocean[0][0])-0.2*len(ocean[0][0]))
-plt.annotate("Ex Trop N",xy=(pltlen,ocean[0][2][pltlen]))
-plt.annotate("Ex Trop S",xy=(pltlen,ocean[0][3][pltlen]))
-plt.annotate("UnderCurrent",xy=(0,ocean[0][4][pltlen]))
+# plt.annotate("Trop W",xy=(0,ocean[0][0][0]-0.3))
+# plt.annotate("Trop E",xy=(0,ocean[0][1][0]-0.3))
+# pltlen=int(len(ocean[0][0])-0.2*len(ocean[0][0]))
+# plt.annotate("Ex Trop N",xy=(pltlen,ocean[0][2][pltlen]))
+# plt.annotate("Ex Trop S",xy=(pltlen,ocean[0][3][pltlen]))
+# plt.annotate("UnderCurrent",xy=(0,ocean[0][4][pltlen]))
 
-plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
-plt.xlabel('Years') 
+plt.hlines(y=0,xmin=0,xmax=6,linestyle='--',color='grey',alpha=0.5)
+plt.yticks(fontsize=13)
+plt.ylabel('OHT (W/m^2)', fontsize=15)
+plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round(),fontsize=12)
+plt.xlabel('Years',fontsize=15) 
 plt.legend()
 
-#def logi(t1,t2):
-#    base=1/(1+np.exp(t2-t1+3))
-#    mod=(base)*0.05 +0.27
-#    return mod
-#
-#plt.plot(3-np.linspace(-4,6),logi(3,np.linspace(-4,6)))
-#plt.xlabel('T1-T2')
 
-#nino tiem series added as term
+#only for one exp
+plt.figure(7)
+plt.title("Ocean heat transport vs local T")
+expnum=len(ocean)
+for i in range(1):
+    plt.plot(allT[i][0][1:] - t01, ocean[i][0],label='West')
+    plt.plot(allT[i][1][1:] - t02, ocean[i][1],label='East')
+    plt.plot(allT[i][2][1:] - t03, ocean[i][2],label='North')
+    plt.plot(allT[i][3][1:] - t04, ocean[i][3],label='South')
+    plt.plot(allT[i][4][1:] - t05, ocean[i][4],label='Undercurrent')
 
+# plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+plt.hlines(y=0,xmin=0,xmax=6,linestyle='--',color='grey',alpha=0.5)
+plt.xticks(fontsize=13)
+plt.yticks(fontsize=13)
+plt.ylabel('OHT (W/m^2)', fontsize=15)
+plt.xlabel('ΔT (K)', fontsize=15) 
+plt.legend()
+
+#%% solve for lambda at each timestep
+# energy budget plot: (Cp*rho*h) * dT/dt = lambda*dT - atmdiv - ocndiv
+
+#conversions from K/s to W/m2
+convfactor = [(Cp*rho*h1), (Cp*rho*h2), (Cp*rho*h3), (Cp*rho*h4)]
+T0=[t01,t02,t03,t04,t05]
+swlw =[S1*(1-alpha1) - (B*(t01-273.15) + A), S2*(1-alpha2) - (B*(t02-273.15) + A),
+       S3*(1-alpha3) - (B*(t03-273.15) + A), S4*(1-alpha4) - (B*(t04-273.15) + A)]
+labels = ['West','East','North','South']
+lamdas=[]
+colors=['tab:blue','tab:orange','tab:green','tab:purple']
+
+#lambda plot: use to solve for lambda if not fixed
+for i in range(4):
+    dT = (allT[0][i][1:] - allT[0][i][:-1]) * convfactor[i]
+    dTdt = dT/dt #change in T per timestep
+    
+    deltaT = allT[0][i][:-1] - T0[i] #anomalous T at previous timestep
+    
+    lamda = (dTdt  - swlw[i] - co2[0] - atmosdiv[0][i] - ocean[0][i])/deltaT
+    lamdas.append(lamda)
+    
+    plt.plot(lamda,label=labels[i],color=colors[i])
+    
+plt.xticks(ticks=np.linspace(0,len(lamda),6),labels=np.linspace(0,int(years),6).astype(int),fontsize=13)
+plt.yticks(fontsize=13)
+plt.legend(fontsize=15)
+plt.xlabel('Years',fontsize=15)
+plt.ylabel('λ',fontsize=15)
+plt.hlines(0, xmin=0, xmax=len(lamda),linestyle='--',color='grey',alpha=0.6)
+
+#%% plot fractional contribution of each term to dT/dt
+
+for i in range(4):
+    plt.subplot(2,2,i+1)
+    
+    dT = (allT[0][i][1:] - allT[0][i][:-1]) * convfactor[i]
+    dTdt = (dT/dt) #change in T per timestep
+    
+    deltaT = allT[0][i][:-1] - T0[i] #anomalous T at previous timestep
+    
+    # add abs of all values to get total energy contributions
+    total = swlw[i] + co2[0] + np.abs(atmosdiv[0][i]) + np.abs(ocean[0][i]) + np.abs(lamdas[i]*deltaT)
+    
+    #filled plot for each term
+    fbdiff = 1-( np.abs(lamdas[i]*deltaT) / total )
+    plt.fill_between( np.arange(len(total)), 1, fbdiff , color=colors[0])
+    
+    ocndiff = fbdiff - np.abs(ocean[0][i]) / total
+    plt.fill_between( np.arange(len(total)), fbdiff, ocndiff , color=colors[1])
+    
+    atmdiff = ocndiff - np.abs(atmosdiv[0][i]) / total
+    plt.fill_between( np.arange(len(total)), ocndiff, atmdiff, color=colors[2] )
+    
+    const = atmdiff - (swlw[i] + co2[0])/total
+    plt.fill_between( np.arange(len(total)), atmdiff, const , color=colors[3])
+    
+    plt.xticks(ticks=np.linspace(0,len(total),6),labels=np.linspace(0,int(years),6).astype(int))
+    if i>1:
+        plt.xlabel('Years') 
+    plt.title(labels[i],fontsize=15)
+
+#%% plot fractional contribution of each term to lambda
+titles=['West','East','North','South']
+convfactor = [(Cp*rho*h1), (Cp*rho*h2), (Cp*rho*h3), (Cp*rho*h4)]
+swlw =[S1*(1-alpha1) - (B*(t01-273.15) + A), S2*(1-alpha2) - (B*(t02-273.15) + A),
+       S3*(1-alpha3) - (B*(t03-273.15) + A), S4*(1-alpha4) - (B*(t04-273.15) + A)]
+T0=[t01,t02,t03,t04,t05]
+A0=[atm01,atm02,atm03,atm04]
+O0=[ot01,ot02,ot03,ot04]
+colors=['tab:blue','tab:orange','tab:green','tab:purple']
+exp=0
+for i in range(4):
+    plt.subplot(2,2,i+1)
+    
+    
+    dT = (allT[exp][i][1:] - allT[exp][i][:-1]) * convfactor[i]
+    dTdt = (dT/dt) #change in T per timestep
+    
+    deltaT = allT[exp][i][:-1] - T0[i] #anomalous T at previous timestep
+    deltaA = atmosdiv[exp][i] - A0[i]
+    deltaO = ocean[exp][i] - O0[i]
+    
+    # add abs of all values to get total energy contributions
+    total =  ( dTdt + co2[0] + np.abs(deltaA) + np.abs(deltaO) ) #(1/deltaT) *
+    
+    #filled plot for each term
+    
+    dTdtdiff = 1-( np.abs(dTdt) / total )
+    plt.fill_between( np.arange(len(total)), 1, dTdtdiff , color=colors[0])
+    
+    ocndiff = dTdtdiff - np.abs(deltaO) / total
+    plt.fill_between( np.arange(len(total)), dTdtdiff, ocndiff , color=colors[1])
+    if np.mean(deltaO)<0:
+        plt.fill_between( np.arange(len(total)), dTdtdiff, ocndiff ,color='none',edgecolor='black',hatch='X')
+    
+    atmdiff = ocndiff - np.abs(deltaA) / total
+    plt.fill_between( np.arange(len(total)), ocndiff, atmdiff, color=colors[2] )
+    if np.mean(deltaA)<0:
+        plt.fill_between( np.arange(len(total)), ocndiff, atmdiff,color='none',edgecolor='black',hatch='X' )
+
+    toadiff = atmdiff - (co2[0])/total
+    plt.fill_between( np.arange(len(total)), atmdiff, toadiff, color=colors[3] )
+    
+    plt.xticks(ticks=np.linspace(0,len(total),6),labels=np.linspace(0,int(years),6).astype(int))
+    if i>1:
+        plt.xlabel('Years',fontsize=15)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.title(titles[i],fontsize=15,weight='bold')
+    
+
+#%% gregory plots
+
+
+vols = [M1,M2,M3,M4]
+#ΔTOA = F - λΔT, as SW & LW are fixed
+#regional plots
+titles=['West','East','North','South']
+for i in range(4):
+    plt.subplot(2,2,i+1)
+    
+    deltaTOA = co2[0] + totfb[0][i]
+    
+    deltaT = allT[0][i][1:] - allT[0][i][0]
+    
+    y = deltaTOA[::500] # take monthly (every 500) to make plotting easier
+    x = deltaT[::500]
+    plt.scatter( x, y , alpha=0.5, s=40, facecolor = 'white', edgecolors='grey')
+    
+    #first X years
+    timecut=15*12 #years * months 
+    slope, inter = np.polyfit( x[:timecut], y[:timecut], 1)
+    plt.plot( x[:timecut], x[:timecut]*slope + inter, label = f"0-{int(timecut/12)} slope={np.round(slope,decimals=2)}", linewidth = 2)
+    #remaining years
+    slope, inter = np.polyfit( x[timecut:], y[timecut:], 1)
+    plt.plot( x[timecut:], x[timecut:]*slope + inter, label = f"{int(timecut/12)}-150 slope={np.round(slope,decimals=2)}", linewidth = 2)
+    
+    if i>1:
+        plt.xlabel('ΔT (K)',fontsize=15)
+    plt.ylabel('ΔTOA (W/m^2)',fontsize=15)
+    plt.legend(fontsize=14)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.title(titles[i],fontsize=14,weight='bold')
+    
+#%% "global" mean gregory plot
+x = meanT[0][1:][::500] #weighted mean anomalous T
+y = weights[0]*(co2[0] + totfb[0][0]) + weights[1]*(co2[0] + totfb[0][1]) + weights[2]*(co2[0] + totfb[0][2]) + weights[3]*(co2[0] + totfb[0][3])
+y = y[::500] #take value every month to reduce plot time
+plt.scatter( x, y , alpha=0.5, s=40, facecolor = 'white', edgecolors='grey')
+
+#first X years
+timecut=15*12 #years * months 
+slope, inter = np.polyfit( x[:timecut], y[:timecut], 1)
+plt.plot( x[:timecut], x[:timecut]*slope + inter, label = f"0-{int(timecut/12)} slope={np.round(slope,decimals=2)}", linewidth = 2)
+#remaining years
+slope, inter = np.polyfit( x[timecut:], y[timecut:], 1)
+plt.plot( x[timecut:], x[timecut:]*slope + inter, label = f"{int(timecut/12)}-150 slope={np.round(slope,decimals=2)}", linewidth = 2)
+
+plt.xlabel('ΔT',fontsize=15)
+plt.ylabel('ΔTOA',fontsize=15)
+plt.xticks(fontsize=13)
+plt.yticks(fontsize=13)
+plt.title("Mean of all 4 regions", weight='bold')
+plt.legend(fontsize=14)
+#%%
+# period = int((timesteps-1)/len(deltaT))
+# deltat = np.arange( 0, timesteps, period,dtype=np.float32)[1:]*dt
+# deltatmon = np.arange( 0, timesteps, 500,dtype=np.float32)[1:]*dt
+# ΔH = volume * ΔT/Δt -> convert to W/m2 via convfactor
+# deltaT_time = allT[0][box][1:] - allT[0][box][:-1]
+# deltaT_timemon = deltaT_time[::500][:-1]
+# deltaH = vols[box] * deltaT_time / dt * convfactor[box]
+# deltaHmon = vols[box] * deltaT_timemon / (dt*500) * convfactor[box]
+
+# deltaatmdiv = (np.asarray(div[box][::period][1:]) - div[box][0])
+# atmdiv = div[box][::period][1:]
+# atmdivmon = atmdiv[::500][:-1]
+
+# if len(ocean[0][box]) == 1799:
+#     ocndiv = np.append(ocean[0][box], ocean[0][box][-1])
+    
+# deltaocndiv = (ocndiv[1:] - ocean[0][box][0]) * convfactor[box]
+# ocndiv = ocean[0][box][1:] * convfactor[box]
+# ocndivmon = ocndiv[::500][:-1]
+
+# F + deltaT*lambda (plus because lambda is negative)
+
+
+
+# #now subtract atm div as well
+# y = y - deltaatmdiv
+# plt.scatter( x, y , alpha=0.5, s=40, facecolor = 'white', edgecolors='tab:orange')
+# slope, inter = np.polyfit( x, y, 1)
+# plt.plot( x, x*slope + inter, label = f"F - λΔT - Δatm_div slope={np.round(slope,decimals=2)}", linewidth = 2)
+
+# #now subtract ocean div as well
+    
+# y = y - deltaocndiv
+# plt.scatter( x, y , alpha=0.5, s=40, facecolor = 'white', edgecolors='tab:green')
+# slope, inter = np.polyfit( x, y, 1)
+# plt.plot( x, x*slope + inter, label = f"F - λΔT - Δatm_div - Δocean slope={np.round(slope,decimals=2)}", linewidth = 2)
+
+# λ = ΔH - F - Δatm_div - Δocean
+# y = deltaH - co2[0] - deltaatmdiv - deltaocndiv
+# y = deltaH  - atmdiv - ocndiv - swlw[box]
+# y2 = deltaH - co2[0] - atmdiv - ocndiv - swlw[box]
+# plt.scatter( x, y , alpha=0.5, s=40, facecolor = 'white', edgecolors='tab:blue')
+# slope, inter = np.polyfit( x[:], y[:], 1)
+# plt.plot( x, x*slope + inter, label = f"ΔH - atm_div - ocean - SW + LW slope={np.round(slope,decimals=2)}", linewidth = 2)
+
+# plt.scatter( x, y2 , alpha=0.5, s=40, facecolor = 'white', edgecolors='tab:red')
+# slope, inter = np.polyfit( x[:], y2[:], 1)
+# plt.plot( x, x*slope + inter, label = f"ΔH - F - atm_div - ocean - SW + LW slope={np.round(slope,decimals=2)}", linewidth = 2)
+
+# plt.legend()
+# plt.title(f"Box {box+1} λ = {np.round(fb[0][box], decimals=2)}")
+# plt.xlabel("ΔT Local")
+# plt.ylabel("W/m2")
+
+#%% energy imbalances?
+plt.plot(deltaH, label='ΔH = volume * ΔT/Δt')
+plt.plot(deltaT*fb[0][box] + co2[0] + deltaatmdiv +deltaocndiv, label = 'F + λΔT + Δatm_div + Δocean slope')
+plt.xlabel('Time')
+plt.ylabel('W/m2')
+plt.title(f"Box {box+1}")
+plt.legend()
+
+#%% calculate lambda explicitly
+l_est=[]
+l_estmon=[]
+for i in range(len(deltaT)):
+    l_est.append(( Cp*rho*h1 * deltaT_time[i]/dt - ocndiv[i] - swlw[box] - atmdiv[i] - co2[0] ) / deltaT[i] )
+    
+for i in range(len(deltaTmon)):
+    l_estmon.append(( Cp*rho*h1 * deltaT_timemon[i]/deltatmon[i] - ocndivmon[i] - swlw[box] - atmdivmon[i] - co2[0] ) / deltaTmon[i] )
+    
+plt.plot(l_est,alpha=0.8)
+# plt.plot(l_estmon,alpha=0.8,linestyle=':')
+# plt.plot(np.asarray(l_est[::500][:-1]) - np.asarray(l_estmon))
+plt.hlines(fb[0][box], xmin=0,xmax=900000, linestyle='--', color='grey',alpha=0.9)
+plt.xlabel('timestep')
+plt.ylabel('predicted λ')
+# plt.ylim([-5,0.5])
+plt.title(f"Box {box+1} λ = {np.round(fb[0][box], decimals=4)}")
+
+#or print the mean value over a time range
+time1=750000
+time2=900000
+    
+l_est_mean = ( Cp*rho*h1 * np.mean(deltaT_time[time1:time2])/dt - 
+              np.mean(ocndiv[time1:time2]) - swlw[box] - np.mean(atmdiv[time1:time2]) - co2[0] ) / np.mean(deltaT[time1:time2])
+print(l_est_mean)
 #%% OPEN AND PLOT SENSITIVITY RUNS
 
 meanT=[]
-meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.150.npy') )
-#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.4wm2.meanT.150.npy') )
-#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.8wm2.meanT.150.npy') )
+#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.meanT.150.npy') )
+#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.meanT.150.npy') )
+#meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.undervol.8wm2.meanT.600.npy') )
+# meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.agu.8wm2.meanT.150.npy') )
 #meanT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.meanT.npy') )
 allT=[]
-allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.150.npy') )
-#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.4wm2.allT.150.npy') )
-#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg4to1.8wm2.allT.150.npy') )
+#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/cmip6.kernelfb.8wm2.allT.150.npy') )
+#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.cmipintervals.8wm2.allT.150.npy') )
+#allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.undervol.8wm2.allT.600.npy') )
+allT1= [ np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.allT.150yr.0-127.npy') ]
+allT2= [ np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.allT.150yr.128-256.npy') ]
 #allT.append( np.load('C:/Users/Scott/Documents/Python Scripts/boxmodel/fb.by1.16wm2.allT.npy') )
-
+allT = np.concatenate( (allT1[0], allT2[0] ) )
+allT = allT[:,:,::500] #take only monthly values for easy plotting
 #meanTann = np.asarray( [annualmean(meanT[i,:]) for i in range(len(meanT))] )
 #allTann = np.zeros(shape=(allT.shape[0],4,int(years)))
 #for box in range(4):
@@ -943,7 +1377,7 @@ for i in range(len(meanT)):
 #ax.set_rlabel('Box 3')
 #westeast_westnorth = np.meshgrid( )
 #plt.contourf( )
-#%% Mean T as function of box feedback
+#%% 
 
 #box1
 fbb1 = np.asarray( [fb[i][0] for i in range(len(fb))] ) 
@@ -1146,12 +1580,16 @@ fig.colorbar(cs)
     
 
 #%% meridional vs zonal T gradient ###################################
+######################################################################
+######################################################################
 # lines colored by meanT at time
 # feedback params of three boxes given as color of scatters at end of line
 
 from matplotlib.collections import LineCollection
 from matplotlib.colors import BoundaryNorm
 from matplotlib.lines import Line2D
+import matplotlib.patheffects as pe
+import matplotlib.colors as colors
 
 exp=0 #co2 amount
 
@@ -1159,8 +1597,9 @@ exp=0 #co2 amount
 #zonalgrad = [ rmean( allTmon[exp][i][0] - allTmon[exp][i][1],13) for i in range(len(allTmon[exp])) ]
 #meridgrad = [ rmean( (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - allTmon[exp][i][2], 13) for i in range(len(allTmon[exp])) ]
 #for runs without seasonal variation
-zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
-meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - (allTmon[exp][i][2]+allTmon[exp][i][3])/2 for i in range(len(allTmon[exp])) ]
+
+zonalgrad =  [ allT[i][0] - allT[i][1] for i in range(len(allT)) ]
+meridgrad = [ (allT[i][0] + allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 for i in range(len(allT)) ]
 #if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
 #    zonalgrad = zonalgrad[19:]
 #    meridgrad = meridgrad[19:]
@@ -1172,16 +1611,47 @@ axs = fig.add_subplot()
 #norm = plt.Normalize(np.min(meanTmon), np.max(meanTmon))
 
 #discrete colorbar for line color
-cmap = plt.cm.get_cmap('plasma', 15)
+cmap = plt.cm.get_cmap('gray')
+def truncate_colormap(cmap, minval=0.4, maxval=0.9, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+    return new_cmap
+cmap = truncate_colormap(cmap)
 #norm = BoundaryNorm(np.logspace(
 #        np.log10( 1.0), np.log10(10),num=15), #np.max(meanTmon[exp])
 #            15)
-norm = plt.Normalize(np.min(meanTmon), 6)
+#norm = plt.Normalize(np.min(meanTmon), 6)
+norm = plt.Normalize(0,1800)
 
 #discrete colorbar for feedbacks
-cmapfb = plt.cm.get_cmap('bwr', 4)
-normfb = BoundaryNorm(np.arange(np.min(fb).round(),np.max(fb).round(),0.2), 4)
+#cmapfb = plt.cm.get_cmap('coolwarm', 10)
+#normfb = BoundaryNorm(np.linspace(np.min(fb)-0.1,0,10), 10)
+cmapfb = plt.cm.get_cmap('coolwarm', 5)
+normfb = BoundaryNorm(np.arange(-2.5,2.6,1), 5)
+# if using the cmip-ranged sensitivity, these will give different colorbars for each fb
+# b1fb = np.linspace(min(r1) - buffer - 0.05, max(r1) + buffer + 
+#                    np.ptp(np.linspace(min(r1) - buffer, max(r1) + buffer, 4))/4, 5)
+# b2fb = np.linspace(min(r2) - buffer - 0.05, max(r2) + buffer + 
+#                    np.ptp(np.linspace(min(r2) - buffer, max(r2) + buffer, 4))/4, 5)
+# b3fb = np.linspace(min(r3) - buffer - 0.05, max(r3) + buffer + 
+#                    np.ptp(np.linspace(min(r3) - buffer, max(r3) + buffer, 4))/4, 5)
+# b4fb = np.linspace(min(r4) - buffer - 0.05, max(r4) + buffer + 
+#                    np.ptp(np.linspace(min(r4) - buffer, max(r4) + buffer, 4))/4, 5)
 
+# normfb1 = BoundaryNorm( b1fb, 4)
+# normfb2 = BoundaryNorm( b2fb, 4)
+# normfb3 = BoundaryNorm( b3fb, 4)
+# normfb4 = BoundaryNorm( b4fb, 4)
+
+#plot * at initial value (same for all)
+x0 = np.mean([zonalgrad[i][0] for i in range(len(zonalgrad))]) #allT[exp][i][0][0] - allT[exp][i][1][0]
+y0 = np.mean([meridgrad[i][0] for i in range(len(zonalgrad))])#(allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0]
+#plt.scatter(x0, y0, marker='*',s=50,color='yellow',zorder=10)
+plt.scatter(0, 0, marker='*',s=80,color='green',zorder=10)
+
+zonalgrad -= x0
+meridgrad -= y0
 for i in range(len(zonalgrad)):
     
     
@@ -1193,13 +1663,16 @@ for i in range(len(zonalgrad)):
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
     lc = LineCollection(segments, cmap=cmap, norm=norm,alpha=0.8)
     # Set the values used for colormapping
-    lc.set_array(meanTmon[exp][i][1:])
+#    lc.set_array(meanTmon[exp][i][1:])
+    lc.set_array(np.arange(1800))
     lc.set_linewidth(1)
     line = axs.add_collection(lc)
+#    axs.plot( zonalgrad[i], meridgrad[i], color = 'grey', alpha=0.8,
+#             path_effects=[pe.Stroke(linewidth=2, foreground='lightsteelblue'), pe.Normal()])
     
     #plot markers indicating the feedback param in each box
     # many reach equil and bunch up all points, while some don't, need way to consistently assign scatters
-    spacing=0.05
+    spacing=0.02
     x1 = zonalgrad[i][-1]
     x2i = np.argmin( np.abs(zonalgrad[i][:] - (x1 + spacing) ) )
     x2 = zonalgrad[i][x2i]
@@ -1221,37 +1694,38 @@ for i in range(len(zonalgrad)):
                 cmap=cmapfb, norm=normfb, zorder=10, alpha=0.8 )
     
     #plot markers at time intervals
-    times = np.asarray([1,5,10,20,50,100])*12
-    for t in times:
-        plt.scatter( zonalgrad[i][t], meridgrad[i][t], marker=f"${int(t/12)}$",
-                    color='white', s=90)
+#    times = np.asarray([1,5,10,20,50,100])*12
+#    for t in times:
+#        plt.scatter( zonalgrad[i][t], meridgrad[i][t], marker=f"${int(t/12)}$",
+#                    color='white', s=90)
 
-#axs.set_xlim((0,5))  
-#axs.set_ylim((5.8,7.9))
-fig.colorbar(line, ax=axs,label='mean T')   
-axs.set_xlabel('zonal gradient',fontsize=14)
-axs.set_ylabel('meridional gradient',fontsize=14)
-axs.set_facecolor('grey')
+axs.set_xlim((-2,2))  
+axs.set_ylim((-1.,1.))
+#fig.colorbar(line, ax=axs,label='Δ Mean T [K]') 
+cb = plt.colorbar(ticks=np.arange(-4,2)) 
+cb.set_label(label='Regional λ',fontsize=16)
+axs.set_xlabel('Δ Zonal gradient [K]',fontsize=16)
+axs.set_ylabel('Δ Meridional gradient [K]',fontsize=16)
+axs.set_facecolor('whitesmoke')
+axs.tick_params(axis='both', which='major', labelsize=14)
+axs.tick_params(axis='both', which='minor', labelsize=13)
 
-#plot * at initial value (same for all)
-x0 = np.mean([zonalgrad[i][0] for i in range(len(zonalgrad))]) #allT[exp][i][0][0] - allT[exp][i][1][0]
-y0 = np.mean([meridgrad[i][0] for i in range(len(zonalgrad))])#(allT[exp][i][0][0]+allT[exp][i][1][0])/2 - allT[exp][i][2][0]
-plt.scatter(x0, y0, marker='*',s=50,color='red',zorder=10)
 
 # draw lines through initial point to divide into quadrants
-#plt.hlines(y0, xmin = 0, xmax= 4, linestyle = '--', color = 'black', alpha=0.7)
-#plt.vlines(x0, ymin = 5.8, ymax= 7.8, linestyle = '--', color = 'black', alpha=0.7)
-plt.hlines(y0, xmin = np.min(zonalgrad), xmax= np.max(zonalgrad), linestyle = '--', color = 'black', alpha=0.7)
-plt.vlines(x0, ymin = np.min(meridgrad), ymax= np.max(meridgrad), linestyle = '--', color = 'black', alpha=0.7)
+plt.hlines(0, xmin = -2, xmax= 2, linestyle = '--', color = 'black', alpha=0.7)
+plt.vlines(0, ymin = -2, ymax= 2, linestyle = '--', color = 'black', alpha=0.7)
+
+#plt.hlines(y0, xmin = np.min(zonalgrad), xmax= np.max(zonalgrad), linestyle = '--', color = 'black', alpha=0.7)
+#plt.vlines(x0, ymin = np.min(meridgrad), ymax= np.max(meridgrad), linestyle = '--', color = 'black', alpha=0.7)
 
 
-legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1',
+legend_elements = [Line2D([0], [0], marker='s', lw=0, label='Box 1 (West)',
                           markerfacecolor='black', markersize=10),
-                   Line2D([0], [0], marker='^', lw=0, label='Box 2',
+                   Line2D([0], [0], marker='^', lw=0, label='Box 2 (East)',
                           markerfacecolor='black', markersize=10),
-                   Line2D([0], [0], marker='o', lw=0, label='Box 3',
+                   Line2D([0], [0], marker='o', lw=0, label='Box 3 (North)',
                           markerfacecolor='black', markersize=10),
-                   Line2D([0], [0], marker='>', lw=0, label='Box 4',
+                   Line2D([0], [0], marker='>', lw=0, label='Box 4 (South)',
                           markerfacecolor='black', markersize=10)
                    ]
 axs.legend(handles=legend_elements, loc='upper right')
@@ -1305,11 +1779,8 @@ exp=0
 #zonalgrad = [ rmean( allTmon[exp][i][0] - allTmon[exp][i][1],13) for i in range(len(allTmon[exp])) ]
 #meridgrad = [ rmean( (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - allTmon[exp][i][2], 13) for i in range(len(allTmon[exp])) ]
 #for runs without easonal variation
-zonalgrad = [ allTmon[exp][i][0] - allTmon[exp][i][1] for i in range(len(allTmon[exp])) ]
-meridgrad = [ (allTmon[exp][i][0] + allTmon[exp][i][1])/2 - (allTmon[exp][i][2]+allTmon[exp][i][3])/2 for i in range(len(allTmon[exp])) ]
-#if len(zonalgrad) > 216: #if dealing with data which has random cmip fb at beginning 19
-#    zonalgrad = zonalgrad[19:]
-#    meridgrad = meridgrad[19:]
+zonalgrad =  [ allT[i][0] - allT[i][1] for i in range(len(allT)) ]
+meridgrad = [ (allT[i][0] + allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 for i in range(len(allT)) ]
     
 #for seasonal means
 #x0 = np.mean([zonalgrad[i][6] for i in range(216)]) #allT[exp][i][0][0] - allT[exp][i][1][0]
@@ -1417,7 +1888,7 @@ for i in range(4): # for each quadrant
 #    
 #    if i==0:
 #        ax[i].legend()
-    ax[i].set_title(titles[i])
+    ax[i].set_title(f"{titles[i]} n={len(quads[i])}", weight='bold')
 #plt.tight_layout()
 #    ax[i].set_ylim([0,31])
 #fig.suptitle('R')
@@ -1494,45 +1965,46 @@ ax.set_zlabel('Mean T')
 #%% ENERGY BALANCE - FIXED SW/LW + CO2 + FB*T
 # MAKE DATAFRAME OF CHARACTERISTICS OF GRADIENTS/SENSITIVITIES
 
-colors = ['tab:blue','tab:orange','tab:red']
+colors = ['tab:blue','tab:purple','tab:orange','tab:red']
 sens = []
-co2 = [4]
+co2 = [8]
 
 #create dataframe with feedbacks, clim sens, and net feedback (estimated from regression)
 df = pd.DataFrame({'Box Feedbacks':fb, 'Sensitivity':np.zeros(len(fb)), 
-                   'Net Feedback':np.zeros(len(fb)), 'Max Gradient':np.zeros(len(fb)),
-                   'Time of Max Grad':np.zeros(len(fb)), 'Init Gradient':np.zeros(len(fb)),
-                   'Final Gradient':np.zeros(len(fb)), 'Time of Equal Grad':np.zeros(len(fb))})
-    
-dfm = pd.DataFrame({'Box Feedbacks':fb, 'Sensitivity':np.zeros(len(fb)), 
-                   'Net Feedback':np.zeros(len(fb)), 'Max Gradient':np.zeros(len(fb)),
-                   'Time of Max Grad':np.zeros(len(fb)), 'Init Gradient':np.zeros(len(fb)),
-                   'Final Gradient':np.zeros(len(fb)), 'Time of Equal Grad':np.zeros(len(fb))})
+                   'Net Feedback':np.zeros(len(fb)), 'Max Zonal Gradient':np.zeros(len(fb)),
+                   'Time of Max Z Grad':np.zeros(len(fb)), 'Init Z Gradient':np.zeros(len(fb)),
+                   'Final Z Gradient':np.zeros(len(fb)), 'Time of Equal Z Grad':np.zeros(len(fb)), 
+                   'Min Meridional Gradient':np.zeros(len(fb)),
+                   'Time of Max M Grad':np.zeros(len(fb)), 'Init M Gradient':np.zeros(len(fb)),
+                   'Final M Gradient':np.zeros(len(fb)), 'Time of Equal M Grad':np.zeros(len(fb))})
 
 for c in range(len(co2)):
     sens.append([])
     zonalgrad = [ allTmon[c][i][0] - allTmon[c][i][1] for i in range(len(allTmon[c])) ]
-    meridgrad = [ (allTmon[c][i][0]+allTmon[c][i][1])/2 - allTmon[c][i][2] for i in range(len(allTmon[c])) ]
+    meridgrad = [ (allTmon[c][i][0]+allTmon[c][i][1])/2 - (allTmon[c][i][2]+allTmon[c][i][3])/2 for i in range(len(allTmon[c])) ]
     for i in range(len(fb)):
         
         T1 = allTmon[c][i][0]
         T2 = allTmon[c][i][1]
         T3 = allTmon[c][i][2]
+        T4 = allTmon[c][i][3]
         
         
         toa_b1 = S1*(1-alpha1) - (B*(t01-273.15) + A) + co2[c] + (T1 - t01) * fb[i][0]
-        toa_b1 = toa_b1*area1 / (area1+area2+area3)
+        toa_b1 = toa_b1*area1 / (area1+area2+area3+area4)
         toa_b2 = S2*(1-alpha2) - (B*(t02-273.15) + A) + co2[c] + (T2 - t02) * fb[i][1]
-        toa_b2 = toa_b2*area2 / (area1+area2+area3)
+        toa_b2 = toa_b2*area2 / (area1+area2+area3+area4)
         toa_b3 = S3*(1-alpha3) - (B*(t03-273.15) + A) + co2[c] + (T3 - t03) * fb[i][2]
-        toa_b3 = toa_b3*area3 / (area1+area2+area3)
+        toa_b3 = toa_b3*area3 / (area1+area2+area3+area4)
+        toa_b4 = S4*(1-alpha4) - (B*(t04-273.15) + A) + co2[c] + (T4 - t04) * fb[i][3]
+        toa_b4 = toa_b4*area4 / (area1+area2+area3+area4)
         
         #linear regression to determine x intercept for each fb (=clim sens)
         # netTOA = slope*meanT + y-int
         # climsens = - y-int/slope
         x0 = sm.add_constant(meanTmon[c][i]) #add column for intercept
         
-        lr = sm.OLS(toa_b1+toa_b2+toa_b3,x0,missing='drop').fit()
+        lr = sm.OLS(toa_b1+toa_b2+toa_b3+toa_b4,x0,missing='drop').fit()
         yint = lr.params[0]
         slope = lr.params[1]
         cs=-yint/slope
@@ -1544,28 +2016,22 @@ for c in range(len(co2)):
         else:
             df['Sensitivity'][i] = cs
         df['Net Feedback'][i] = slope
-        df['Max Gradient'][i] = np.max(zonalgrad[i])
-        df['Init Gradient'][i] = zonalgrad[i][0]
-        df['Final Gradient'][i] = zonalgrad[i][-1]
-        df['Time of Max Grad'][i] = np.argmax(zonalgrad[i])
-        #thermosat duration 
+        df['Max Zonal Gradient'][i] = np.max(zonalgrad[i])
+        df['Init Z Gradient'][i] = zonalgrad[i][0]
+        df['Final Z Gradient'][i] = zonalgrad[i][-1]
+        df['Time of Max Z Grad'][i] = np.argmax(zonalgrad[i])
+        #zonal thermosat duration 
         thermdur = np.argmin(np.abs(zonalgrad[i][0] - zonalgrad[i][5:])) + 5
         if thermdur == 5: #if gradient only increases in strength
-            df['Time of Equal Grad'][i] =  np.nan
+            df['Time of Equal Z Grad'][i] =  np.nan
         else:
-            df['Time of Equal Grad'][i] = thermdur
+            df['Time of Equal Z Grad'][i] = thermdur
         
-        #add things to meridional dataframe
-        if not (cs>0) & (cs<50):
-            dfm['Sensitivity'][i] = np.nan
-        else:
-            dfm['Sensitivity'][i] = cs
-        dfm['Net Feedback'][i] = slope
-        dfm['Max Gradient'][i] = np.max(meridgrad[i])
-        dfm['Init Gradient'][i] = meridgrad[i][0]
-        dfm['Final Gradient'][i] = meridgrad[i][-1]
-        dfm['Time of Max Grad'][i] = np.argmax(meridgrad[i])
-        dfm['Time of Equal Grad'][i] = np.argmin(np.abs(meridgrad[i][0] - meridgrad[i][5:])) + 5 
+        df['Min Meridional Gradient'][i] = np.min(meridgrad[i])
+        df['Init M Gradient'][i] = meridgrad[i][0]
+        df['Final M Gradient'][i] = meridgrad[i][-1]
+        df['Time of Max M Grad'][i] = np.argmax(meridgrad[i])
+        df['Time of Equal M Grad'][i] = np.argmin(np.abs(meridgrad[i][0] - meridgrad[i][5:])) + 5 
         
         
         #plt.scatter( meanTmon[c][i], toa_b1+toa_b2+toa_b3 ,color = colors[c], s=5)
@@ -1573,27 +2039,7 @@ for c in range(len(co2)):
         #add regression line to visualize x intercept
         #plt.plot( np.arange(0,30), slope*np.arange(30)+yint, color='grey',linewidth=0.5,alpha=0.6)
 
-#plt.xlabel('Mean T',fontsize=14)
-#plt.ylabel('Net Energy Imbalance (+ down)',fontsize=14)
-#plt.ylim([0,35])
-#plt.xlim([0,30])
-#sens = np.asarray(sens)
-#ecs = np.zeros_like(sens)
-#
-#
-#for i in range(sens.shape[0]):
-#    ecs[i,:] = sens[i,:]/(co2[i]/2**i)
-#
-#for i in range(len(fb)):
-##for c in range(len(co2)):
-##    plt.scatter( np.arange(216), sens[c,:], color=colors[c], s=5)
-#    plt.plot(sens[:,i])
-#plt.xticks(ticks=np.arange(len(co2)))
-#    
-#plt.ylim([0,20])
-#
-#plt.xlabel('Experiment')
-#plt.ylabel('ECS [C]')
+#set rows to nan if
 #%%
 # PLOTS USING THE DATAFRAME
 
@@ -1608,21 +2054,20 @@ for c in range(len(co2)):
 #        final gradient controlled mostly by box 1, could be due to unrealistic pos params though
 
 
-var = 'Final Gradient'
-isdata = np.where(df[var].notnull())[0]
-marks=['o','x','^']
-offset=[-0.1,0.,0.1]
+var = 'Min Meridional Gradient'
+#filter out nans and extreme values
+isdata = np.where( (df[var].notnull()) & (np.abs(df['Min Meridional Gradient'])<10) )[0]
+marks=['o','x','^','*']
+offset=[0,0,0,0] #[-0.2,-0.1,0.1,0.2]
 
 
-#plot 3 times
-for f in range(3):
+
+for f in range(3): #for each fb
     
     #individual regional fb params
-#    x = np.asarray( [ i[f] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
-#    labels=['fb1','fb2','fb3']
-    #differences of regional fb params
-    x = np.asarray( [ i[f]-i[f-1] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
-    labels=['fb1-fb3','fb2-fb1','fb3-fb2']
+    x = np.asarray( [ i[f] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+    labels=['fb1','fb2','fb3','fb4']
+    
     y = df[var].iloc[isdata]
     
     #regression to determine linear fit
@@ -1632,16 +2077,26 @@ for f in range(3):
     
     plt.scatter( x+offset[f], y , marker=marks[f], label = f"{labels[f]} {lr.rsquared.round(decimals=3)}")
     
+    #differences of regional fb params
+    x = np.asarray( [ i[f]-i[f-1] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+    labels=['fb1-fb3','fb2-fb1','fb3-fb2']
+    
+    x0 = sm.add_constant(x) #add column for intercept
+            
+    lr = sm.OLS(y,x0,missing='drop').fit()
+    
+    plt.scatter( x, y , label = f"{labels[f]} {lr.rsquared.round(decimals=3)}")
+    
 #meridional gradient as predictor
-#x = np.asarray( [ (i[0]+i[1])/2 - i[2] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
-#y = df[var].iloc[isdata]
+x = np.asarray( [ (i[0]+i[1])/2 - i[2] for i in df['Box Feedbacks'].iloc[isdata][:] ] )
+y = df[var].iloc[isdata]
 
 #regression to determine linear fit
-#x0 = sm.add_constant(x) #add column for intercept
-#        
-#lr = sm.OLS(y,x0,missing='drop').fit()
-#
-#plt.scatter( x, y , label = f"(fb1+fb2)/2 - fb3 {lr.rsquared.round(decimals=3)}")
+x0 = sm.add_constant(x) #add column for intercept
+        
+lr = sm.OLS(y,x0,missing='drop').fit()
+
+plt.scatter( x, y , label = f"(fb1+fb2)/2 - fb3 {lr.rsquared.round(decimals=3)}")
     
 plt.ylabel(var,fontsize=13)
 plt.xlabel('Feedback parameter',fontsize=13)
@@ -2059,4 +2514,22 @@ plt.ylabel('150yr Zonal Gradient [K]', fontsize=14)
 plt.title('Zonal gradient as function of Aw value', fontsize=14)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
+
+#%% sensitivity to under volume
+
+zonalgrad = [ allT[0][i][0] - allT[0][i][1] for i in range(len(allT[0])) ]
+extrop = [ (allT[0][i][2]*M3 + allT[0][i][3]*M4)/(M3+M4) for i in range(len(allT[0])) ]
+meridgrad = [ (allT[0][i][0] + allT[0][i][1])/2 - extrop[i] for i in range(len(allT[0])) ]
+
+labels = ["1/4", "1", "4"]
+plt.scatter(zonalgrad[0][0], meridgrad[0][0], marker='*', color='red', zorder=10, s=130)
+for i in range(len(labels)):
+    plt.plot( zonalgrad[i], meridgrad[i], label = labels[i], linewidth=2)
+    
+plt.xlabel('Zonal gradient [K]', fontsize=19)
+plt.ylabel('Meridional gradient [K]', fontsize=19)
+plt.xticks(fontsize=17)
+plt.yticks(fontsize=17)
+plt.grid()
+plt.legend(fontsize=20)
     
