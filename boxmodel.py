@@ -5,7 +5,7 @@ Created on Wed Nov  2 11:11:59 2022
 @author: Scott
 """
 
-# 4...now 5! box model
+# 4...now 5.....now 7! box model
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,10 +32,14 @@ warea = 15774945387831 #surface area of box 1, west
 earea = 15774945387831
 narea = 33306750009756
 sarea = 28541763159964
+hnarea = 12430460163633
+hsarea = 20244594358318
 h1=50 #60 #m, depth of box 1
 h2=50 #20 #50 #m, depth of box 2
 h3=200 #m, depth of box 3
 h4=200 #m, depth of box 5
+h6=500 # m, depth of box 6
+h7=500 # m, depth of box 7
 M1= warea * h1 #7.8e14 #4.9e14 #3e14 6.8e14 #m3, vol of box 1 (west)
 M2= earea * h2 #3.2e14 #7.8e14 #4.9e14 #3e14#6.8e14 #m3, vol of box 2 (east)
 M3= narea * h3 #6.6e15 #4.5e15 #m3, vol of box 3  (north) 
@@ -58,15 +62,19 @@ RH=0.8; # relative humidity in tropics
 RHet=0.7 # relative humidity in ex tropics? probably not, looks the same
 epsil=0.622; # ration of mass or vapour to dry air
 mse_gamma = 0.001581 # W/m2 / J/kg
-mse_gamma_w = 0.002081 #0.001081 #0.005294 #all these custom regression mse do not work well. they are now manually set
-mse_gamma_e = 0.002081 #-0.000042 #0.006500 #0.006529 #0.001581
-mse_gamma_n = 0.000581 #0.001081 #0.002115 #0.001581
-mse_gamma_s = 0.031981 #0.001381 #0.001724 #0.001581 #
+mse_gamma_w = -0.007 #
+mse_gamma_e = -0.002 #
+mse_gamma_n = -0.002 #
+mse_gamma_s = -0.005 #
+mse_gamma_hn = -0.002
+mse_gamma_hs = -0.003
 mse_int = -9.56 #-9.56 #intercept for mse regression
-mse_int_w = 0 #-18 #-7 #43.12 #-7
-mse_int_e = -15 #50 #-9 #56.26 #-11
-mse_int_n = -43 #-44 #-36.79 #-47#-26
-mse_int_s = -53 #-51 #-38.1 #-54#-36
+mse_int_w = 75 #118.72 
+mse_int_e = -3 #17.72 
+mse_int_n = -45 #-25.94
+mse_int_s = -29 #-9.32 
+mse_int_hn = 6 #13.93
+mse_int_hs = -36 #157.55
 #regression done on Cheyenne notebook mse_aht_regression.ipynb
 #used only 65S-65N
 
@@ -91,10 +99,13 @@ gamma = 3.3 # W/m2 / K
 #the following based on CERES data calculated in ceres.py
 #to find range of alphas, use extreme values from all ceres data?
 #boxes used for ceres radiation data: 
-# 1: 5-5N/S 110-160  2: 5-5N/S 230-280   3: 30-60??? trying 20-50  160-240
-alpha1 = 0.23; alpha2 = 0.20; alpha3 = 0.25; alpha4 = 0.23 #alpha1 = 0.26; alpha2 = 0.22 alpha3 = 0.30,0.28 alpha4=0.27
-#S1 = 415; S2 = 415; S3 = 318; S4 = 322 #S3 = 318,348 S4=372
+# 1: 8-8N/S 120-200E  2: 8-8N/S 200-280E   3: 8-50N 165-230E 4: 8-40S 200-280E
+alpha1 = 0.23; alpha2 = 0.20; alpha3 = 0.25; alpha4 = 0.23 
+alpha6 = 0.45 # High lats NH
+alpha7 = 0.43 # High lats SH
 S1 = 415; S2 = 415; S3 = 367; S4 = 380
+S6 = 228 # High lats NH
+S7 = 254 # High lats SH
 
 #ranges of SW from CERES
 # S1 and S2: 386 in july to 437 in april
@@ -196,6 +207,19 @@ def mse_et(t): #moist static energy in extratropics, constant rel hum, surface p
     h=cp_air*(t+273.15)+L*RHet*qs; #moist static energy J/kg
     return h
 
+def aht_anom( avglat_here, avglat_poleward , 
+             mse_here, mse_poleward):
+    #estimate poleward AHT anom from meridional changes in MSE anoms
+    # from https://journals.ametsoc.org/view/journals/clim/32/12/jcli-d-18-0563.1.xml?tab_body=fulltext-display
+    ps = 100000 # surf press Pa
+    D = 0.96e6 #diffusivity const
+    x = np.sin( np.deg2rad(avglat_here) )
+    xp = np.sin( np.deg2rad(avglat_poleward ) )
+    dx = xp - x
+    dh = mse_poleward - mse_here
+    F = -(2*np.pi*ps) * D * (1-x**2) * dh/dx
+    
+    return F
     
 # sigmoid curve based on T gradient. plateus at lower and upper values
     #need a stable region near t1-t2=3 ? add two curves?
@@ -347,8 +371,8 @@ mcolors = ['red', 'red', 'blue', 'blue', 'blue', 'red', 'red', 'red', 'red', 'bl
 #cmip6 mean fb
 # fb = [ np.mean( np.asarray(fb), axis=0 ) ]
 # fb = [ [-1.27, 2.27, -2.0, 0.83] ]
-fb = [ [-1.63, 2.62, -1.72, 0.14]]
-# fb=[[-1,-1,-1,-1]]
+fb = [ [-1.63, 2.62, -1.72, 0.14, -0.5, -0.98]]
+fb=[[-0.75,-0.99,-0.92,-1.68,-0.54,-0.98]] # fb from first 15 years CMIP6 A4X
 #fb = [[-1.1051, -0.8333, -1.99907, -1.5852]]
 #fb = [ [min(r1) - buffer, max(r2) + buffer, max(r3) + buffer, max(r4) + buffer] ]
 
@@ -360,7 +384,7 @@ co2 = [8] #w/m2 4~2xCO2, 8~4xCO2, 12~8xCO2
 calib = False #true to enable temp based regional fb, only use with other fb set to 0
 
 if calib: #set other prescribed fb to 0 to allow temp based regional fb to work
-    fb=[[0,0,0,0]]
+    fb=[[0,0,0,0,0,0]]
     co2 = [0] #w/m2 
 # fb = [[-4,4,-2,-2]]
 ##########################
@@ -388,6 +412,8 @@ obst1 = 302.3
 obst2 = 299.4
 obst3 = 294.4
 obst4 = 295.7
+obst6 = 276.1 #high lat north
+obst7 = 278.4 #high lat south
 
 def tcheck():
     print("T1",np.round(T1-obst1,decimals=2))
@@ -402,6 +428,8 @@ t02=298.53 #299.23 #299.5 #299.507 #299.21
 t03=293.16 #293.94 #293.8 #293.728 #292.28 
 t04=294.62 #295.48 #295.11 #295.013 #294.56 
 t05=293.83 #294.66 #294.328 #293.4 
+t06=276.1
+t07=278.4
 
 # initial ocean convergence values
 ot01= -12.018575192140514 #W/m2
@@ -415,13 +443,39 @@ atm02=-39.06954631263214
 atm03=-40.713608945770446
 atm04=-52.755227482917775
 
-#init temps for 5 boxes, w/ observed CERES SW and tuned mse intercept
-#if seasonal:
-#    t01=299.12
-#    t02=295.11
-#    t03=289.49
-#    t04=292.53
-#    t05=291.00
+################################################################
+##### TUNING OF ATMOS DIV TO MATCH OBSERVED SW + LW & INITIAL TEMPS #####
+q=Ah*( np.average([t01,t02],weights=[M1,M2]) - np.average([t03,t04],weights=[M3,M4])) + Aw*(t01-t02)
+q4 = q*M4/(M3+M4)
+q3 = q-q4
+
+msenonwest = np.average( [mse(t02),mse(t03),mse(t04)], weights = [earea,narea,sarea] )
+atm_div_w = mse_gamma_w*(mse(t01) - msenonwest) 
+o1 = q*(1-epsilon)*(t02-t01) /M1 * (Cp*rho*h1)
+mse_int_w = -(S1*(1-alpha1) - 238 + atm_div_w + o1)
+
+msenoneast = np.average( [mse(t01),mse(t03),mse(t04)], weights = [warea,narea,sarea] )
+atm_div_e = mse_gamma_e*(mse(t02) - msenoneast)
+o2 = q*(t05-t02) /M2 * (Cp*rho*h2)
+mse_int_e = -(S2*(1-alpha2) - 273 + atm_div_e + o2)
+
+msenonnorth = np.average( [mse(t01),mse(t02),mse(t06)], weights = [warea,earea,hnarea] )
+atm_div_n = mse_gamma_n*(mse(t03) - msenonnorth)
+o3 = (q3*epsilon*(t02-t03) + q3*(1-epsilon)*(t01-t03))/M3 * (Cp*rho*h3)
+mse_int_n = -(S3*(1-alpha3) - 248 + atm_div_n + o3)
+
+msenonsouth = np.average( [mse(t01),mse(t02),mse(t07)], weights = [warea,earea,hsarea] )
+atm_div_s = mse_gamma_s*(mse(t04) - msenonsouth)
+o4 = (q4*epsilon*(t02-t04) + q4*(1-epsilon)*(t01-t04))/M4 * (Cp*rho*h4)
+mse_int_s = -(S4*(1-alpha4) - 256 + atm_div_s + o4)
+
+atm_div_hn = mse_gamma_hn*(mse(t06) - mse(t03))
+mse_int_hn = -(S6*(1-alpha6) - 201.8 + atm_div_hn)
+
+atm_div_hs = mse_gamma_hs*(mse(t07) - mse(t04)) 
+mse_int_hs = -(S7*(1-alpha7) - 213.9 + atm_div_hs)
+
+#####################################################################
 
 zongrad0=t01-t02
 norgrad0=(t01+t02)/2 - t03
@@ -439,17 +493,17 @@ ocean=[]
 atmosdiv=[]
 totfb=[]
 
-changenum = 3
+changenum = 1
 for itr in range(changenum): #decide what length you want to run for any parameter suite
     
-    param0 = 14009760591807300
+    # param0 = 14009760591807300
 #    delta = param0 * 0.2
     
 #    changed = np.arange( param0 - 5*delta, param0 + 5*delta + 0.01, delta)
-    changed = [param0/8, param0, param0*8]
+    # changed = [param0/8, param0, param0*8]
 
 #    Ah = changed[itr]
-    M5 = changed[itr]
+    # M5 = changed[itr]
     
     
     for c in range(len(co2)): #for each co2 forcing
@@ -463,37 +517,39 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 print(f"{(i+1)*(itr+1)*(c+1) } of {len(fb)*len(co2)*changenum} fb={fb[i]}")
                 
             #for sens, write out in between 
-            if i==128:
-                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.meanT.150yr.0-127.npy',np.asarray(meanT))
-                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.allT.150yr.0-127.npy',np.asarray(allT))
-                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.atmdiv.150yr.0-127.npy',np.asarray(atmosdiv))
-                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.oceandiv.150yr.0-127.npy',np.asarray(ocean))
-                np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.totfb.150yr.0-127.npy',np.asarray(totfb))
+            # if i==128:
+                # np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.meanT.150yr.0-127.npy',np.asarray(meanT))
+                # np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.allT.150yr.0-127.npy',np.asarray(allT))
+                # np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.atmdiv.150yr.0-127.npy',np.asarray(atmosdiv))
+                # np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.oceandiv.150yr.0-127.npy',np.asarray(ocean))
+                # np.save('C:/Users/Scott/Documents/Python Scripts/boxmodel/sens.neg2.neg1.1.2.8wm2.totfb.150yr.0-127.npy',np.asarray(totfb))
                 
-                #after writing out, reset all arrays to free memory
-                allT=[]
-                meanT=[]
-                allLatent=[]
-                allR=[]
-                ocean=[]
-                atmosdiv=[]
-                totfb=[]
+                # #after writing out, reset all arrays to free memory
+                # allT=[]
+                # meanT=[]
+                # allLatent=[]
+                # allR=[]
+                # ocean=[]
+                # atmosdiv=[]
+                # totfb=[]
                 
-                print("files saved and arrays reset")
+                # print("files saved and arrays reset")
             
             t1=[t01]
             t2=[t02]
             t3=[t03]
             t4=[t04]
             t5=[t05]
+            t6=[t06]
+            t7=[t07]
             t1temp=[]
             R1=[]; R2=[]; R3=[]; R4=[]
             H1OLR=[]; H2OLR=[]; H3OLR=[]; H4OLR=[]
             H1Latent=[]; H2Latent=[]; H3Latent=[]; H4Latent=[]
-            sw=[[],[],[],[]]; lw=[[],[],[],[]]; div=[[],[],[],[]]
+            div=[[],[],[],[],[],[]]
             circ=[[],[],[],[]]
             ot=[[],[],[],[],[]]
-            tempfb=[[],[],[],[]]
+            tempfb=[[],[],[],[],[],[]]
         
             Tmean0 = (t1[0]*weights[0] + t2[0]*weights[1] + t3[0]*weights[2] + t4[0]*weights[3])
             if fb_adapt:
@@ -512,6 +568,8 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     T3=t03
                     T4=t04
                     T5=t05
+                    T6=t06
+                    T7=t07
                     dT1=0 ; dT2=0; dT3=0; dT4=0
                 
                     
@@ -527,8 +585,8 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 
                 
                 Tmean = 1/np.sum(weights)*(T1*weights[0] + T2*weights[1] + T3*weights[2] + T4*weights[3])
-                mse_mean = 1/np.sum(weights)*(mse(T1)*weights[0] + mse(T2)*weights[1] + mse(T3)*weights[2]
-                + mse(T4)*weights[3])
+                # mse_mean = 1/np.sum(weights)*(mse(T1)*weights[0] + mse(T2)*weights[1] + mse(T3)*weights[2]
+                # + mse(T4)*weights[3])
             ###############################################################
             ## BOX 1 ### WEST #############################################
             ###############################################################
@@ -547,18 +605,22 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     mse_gamma = mse_gamma_w
                     mse_int = mse_int_w
                     
-                atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int #old version gamma*(Tmean-T1)
+                # atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int 
+                msenonwest = np.average( [mse(T2),mse(T3),mse(T4)], weights = [earea,narea,sarea] )
+                atm_div_w = mse_gamma*(mse(T1) - msenonwest) + mse_int
+                
                 #to calibrate equil state
                 if calib:
-                    R= S1*(1-alpha1) - (Bwest*(T1-273.15) + Awest) + atm_div + co2[c] + fb1
+                    R= S1*(1-alpha1) - 238 + atm_div_w + co2[c] + fb1 #(Bwest*(T1-273.15) + Awest)
                 #once equil T found
                 else:
-                    R= S1*(1-alpha1) - (Bwest*(t01-273.15) + Awest) + atm_div + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
-                    
-                tempfb[0].append( fb1 )
-                sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
-                div[0].append(atm_div)
-                circ[0].append(q*(1-epsilon)*(T2-T1))
+                    R= S1*(1-alpha1) - 238 + atm_div_w + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
+                
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    tempfb[0].append( fb1 )
+                    # sw[0].append(S1*(1-alpha1)); lw[0].append(B*(T1-273.15) + A)
+                    div[0].append(atm_div_w)
+                    circ[0].append(q*(1-epsilon)*(T2-T1))
                 H1= 1/(Cp*rho*h1) * R
                 R1.append(R)
             #    H1OLR.append(H1olr)
@@ -571,25 +633,6 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     #local feedback: (Tnow - T0) * lambda
                     fb2 = (T2 - t02) * fb[i][1]
                 else:
-                    # feedback param based on cmip6 mean trends. two values and a linear change between them
-                    # change happens at a local delta T, as seen in cmip6 data
-                    # fbparam21 = -1.33
-                    # fbparam22 = 2.27
-                    
-                    # x1change = 3.0 # local delta T to start change of fb param
-                    # x2change = 4.2 # end of change
-                    
-                    # localdT = T2 - t02
-                    
-                    # if localdT < x1change:
-                    #     fbparam2 = fbparam21
-                    # elif localdT > x2change:
-                    #     fbparam2 = fbparam22
-                    # else:
-                    #     fbparam2 = linchange( fbparam21, fbparam22, x1change, x2change, localdT)
-                    
-                    # fb2 = (T2 - t02) * fbparam2
-                    
                     # try lambda1 * dt_local + lambda2 * (dt_west - dt_local)
                     fbparam21 = -1.236
                     fbparam22 = -9.846
@@ -608,18 +651,22 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     mse_gamma = mse_gamma_e
                     mse_int = mse_int_e
                 
-                atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
+                # atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
+                msenoneast = np.average( [mse(T1),mse(T3),mse(T4)], weights = [warea,narea,sarea] )
+                atm_div_e = mse_gamma*(mse(T2) - msenoneast) + mse_int
+                
                 #to calibrate
                 if calib:
-                    R= S2*(1-alpha2) - (Beast*(T2-273.15) + Aeast) + atm_div + co2[c] + fb2
+                    R= S2*(1-alpha2) - 273 + atm_div_e + co2[c] + fb2 #(Beast*(T2-273.15) + Aeast)
                 #once equil found
                 else:
-                    R= S2*(1-alpha2) - (Beast*(t02-273.15) + Aeast) + atm_div + co2[c] + fb2 #+ nino[1][0][t]
+                    R= S2*(1-alpha2) - 273 + atm_div_e + co2[c] + fb2 #+ nino[1][0][t]
                 
-                tempfb[1].append( fb2 )
-                sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
-                div[1].append(atm_div)
-                circ[1].append(q*(T4-T2))
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    tempfb[1].append( fb2 )
+                    # sw[1].append(S2*(1-alpha2)); lw[1].append(B*(T2-273.15) + A)
+                    div[1].append(atm_div_e)
+                    circ[1].append(q*(T4-T2))
                 H2= 1/(Cp*rho*h2) * R
                 R2.append(R)
             #    H2OLR.append(H2olr)
@@ -669,19 +716,23 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 if mse_indiv:
                     mse_gamma = mse_gamma_n
                     mse_int = mse_int_n
-    
-                atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int #old version gamma*(Tmean-T3)
+                
+                # atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int 
+                msenonnorth = np.average( [mse(T1),mse(T2),mse(T6)], weights = [warea,earea,hnarea] )
+                atm_div_n = mse_gamma*(mse(T3) - msenonnorth) + mse_int
+                
                 #to calibrate
                 if calib:
-                    R= S3*(1-alpha3) - (Bnorth*(T3-273.15) + Anorth) + atm_div + co2[c] + fb3
+                    R= S3*(1-alpha3) - 248 + atm_div_n + co2[c] + fb3 # (Bnorth*(T3-273.15) + Anorth)
                 #once equil found
                 else:
-                    R= S3*(1-alpha3) - (Bnorth*(t03-273.15) + Anorth) + atm_div + co2[c] + fb3 #+ nino[2][0][t]
+                    R= S3*(1-alpha3) - 248 + atm_div_n + co2[c] + fb3 #+ nino[2][0][t]
                 
-                tempfb[2].append( fb3 )
-                sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
-                div[2].append(atm_div)
-                circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    tempfb[2].append( fb3 )
+                    # sw[2].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
+                    div[2].append(atm_div_n)
+                    circ[2].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
                 H3= 1/(Cp*rho*h3) * R
                 R3.append(R)
             #    H3OLR.append(H3olr)
@@ -695,25 +746,6 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     #local feedback: (Tnow - T0) * lambda
                     fb4 = (T4 - t04) * fb[i][3]
                 else:
-                    # feedback param based on cmip6 mean trends. two values and a linear change between them
-                    # change happens at a local delta T, as seen in cmip6 data
-                    # fbparam41 = -2.82
-                    # fbparam42 = 0.83
-                    
-                    # x1change = 1.8 # local delta T to start change of fb param
-                    # x2change = 3.0 # end of change
-                    
-                    # localdT = T4 - t04
-                    
-                    # if localdT < x1change:
-                    #     fbparam4 = fbparam41
-                    # elif localdT > x2change:
-                    #     fbparam4 = fbparam42
-                    # else:
-                    #     fbparam4 = linchange( fbparam41, fbparam42, x1change, x2change, localdT)
-                    
-                    # fb4 = (T4 - t04) * fbparam4
-                    
                     # try lambda1 * dt_local + lambda2 * (dt_west - dt_local)
                     fbparam41 = -0.557
                     fbparam42 = -4.725
@@ -731,24 +763,97 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 if mse_indiv:
                     mse_gamma = mse_gamma_s
                     mse_int = mse_int_s
-    
-                atm_div = mse_gamma*(mse_mean - mse(T4)) + mse_int #old version gamma*(Tmean-T4)
-                #anomalous AHT term - increase poleward AHT with warming
-                #aaht = -(Tmean-Tmean0)*
+                
+                # atm_div = mse_gamma*(mse_mean - mse(T4)) + mse_int 
+                msenonsouth = np.average( [mse(T1),mse(T2),mse(T7)], weights = [warea,earea,hsarea] )
+                atm_div_s = mse_gamma*(mse(T4) - msenonsouth) + mse_int
+
                 
                 #to calibrate
                 if calib:
-                    R= S4*(1-alpha4) - (Bsouth*(T4-273.15) + Asouth) + atm_div + co2[c] + fb4
+                    R= S4*(1-alpha4) - 256 + atm_div_s + co2[c] + fb4 # (Bsouth*(T4-273.15) + Asouth)
                 #once equil found
                 else:
-                    R= S4*(1-alpha4) - (Bsouth*(t04-273.15) + Asouth) + atm_div + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
+                    R= S4*(1-alpha4) - 256 + atm_div_s + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
                 
-                tempfb[3].append( fb4 )
-                sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
-                div[3].append(atm_div)
-                circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    tempfb[3].append( fb4 )
+                    # sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
+                    div[3].append(atm_div_s)
+                    circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
                 H4= 1/(Cp*rho*h4) * R
                 R4.append(R)
+            #    H3OLR.append(H3olr)
+            #    H3Latent.append(H3latent)
+            
+            
+            ########################################################################
+            #### BOX 6 ### HIGH LATITUDE NORTH #####################################
+            ########################################################################
+            
+                
+                fb6 = (T6 - t06) * fb[i][4]
+                
+                
+                if not B_param_indiv:
+                    Bhnorth=B
+                    Ahnorth=A
+                    
+                if mse_indiv:
+                    mse_gamma = mse_gamma_hn
+                    mse_int = mse_int_hn
+    
+                atm_div_hn = mse_gamma*(mse(T6) - mse(T3)) + mse_int
+                
+                #to calibrate
+                if calib:
+                    R= S6*(1-alpha6) - 201.8 + atm_div_hn + co2[c] + fb6
+                #once equil found
+                else:
+                    R= S6*(1-alpha6) - 201.8 + atm_div_hn + co2[c] + fb6 
+                
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    tempfb[4].append( fb6 )
+                # sw[3].append(S3*(1-alpha3)); lw[2].append(B*(T3-273.15) + A)
+                    div[4].append(atm_div_hn)
+                # circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
+                H6= 1/(Cp*rho*h6) * R
+                # R4.append(R)
+            #    H3OLR.append(H3olr)
+            #    H3Latent.append(H3latent)
+            
+            ########################################################################
+            #### BOX 7 ### HIGH LATITUDE SOUTH #####################################
+            ########################################################################
+            
+                
+                fb7 = (T7 - t07) * fb[i][5]
+                
+                
+                if not B_param_indiv:
+                    Bhsouth=B
+                    Ahsouth=A
+                    
+                if mse_indiv:
+                    mse_gamma = mse_gamma_hs
+                    mse_int = mse_int_hs
+    
+                atm_div_hs = mse_gamma*(mse(T7) - mse(T4)) + mse_int
+                
+                #to calibrate
+                if calib:
+                    R= S7*(1-alpha7) - 213.9 + atm_div_hs + co2[c] + fb7
+                #once equil found
+                else:
+                    R= S7*(1-alpha7) - 213.9 + atm_div_hs + co2[c] + fb7 
+                
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    tempfb[5].append( fb7 )
+                
+                    div[5].append(atm_div_hs)
+                # circ[3].append(q*epsilon*(T2-T3) + q*(1-epsilon)*(T1-T3))
+                H7= 1/(Cp*rho*h7) * R
+                # R4.append(R)
             #    H3OLR.append(H3olr)
             #    H3Latent.append(H3latent)
             
@@ -792,6 +897,8 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     T3=T3 + dt/M3 * (M3*H3 + ocean3) #+ (-0.04*dt/(3600*24*30)) #add cooling trend from upwelling of .02 deg/month
                     T4=T4 + dt/M4 * (M4*H4 + ocean4) #+ (-0.04*dt/(3600*24*30))
                     T5=T5 + dt/M5 * ocean5 
+                    T6=T6 + dt*H6 # High lat NH, assuming no ocean connection
+                    T7=T7 + dt*H7 # High lat SH, assuming no ocean connection
                     
                     #get ocean heat transport in W/m2
                     o1wm2 = ocean1/M1 * (Cp*rho*h1)
@@ -807,24 +914,28 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 if fb_adapt:
                     t1temp.append(T1) #every timestep of T1 to calc adaptive fb
                 
-                # if (t+1)%500==0: #write out data every 1/12 of a year
-                t1.append(T1)
-                t2.append(T2)
-                t3.append(T3)
-                t4.append(T4)
-                t5.append(T5)
-                
-                ot[0].append(o1wm2)
-                ot[1].append(o2wm2)
-                ot[2].append(o3wm2)
-                ot[3].append(o4wm2)
-                ot[4].append(o5wm2)
+                if (t+1)%500==0: #write out data every 1/12 of a year
+                    t1.append(T1)
+                    t2.append(T2)
+                    t3.append(T3)
+                    t4.append(T4)
+                    t5.append(T5)
+                    t6.append(T6)
+                    t7.append(T7)
+                    
+                    ot[0].append(o1wm2)
+                    ot[1].append(o2wm2)
+                    ot[2].append(o3wm2)
+                    ot[3].append(o4wm2)
+                    ot[4].append(o5wm2)
             
             t1=np.asarray(t1)
             t2=np.asarray(t2)
             t3=np.asarray(t3)
             t4=np.asarray(t4)
             t5=np.asarray(t5)
+            t6=np.asarray(t6)
+            t7=np.asarray(t7)
             
 #            if itr !=2: #for runs of different lengths, add nan to previous runs to equalize lengths
 #                t1 = np.append(t1, np.zeros(len(t1)) + np.nan)
@@ -835,7 +946,7 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 
             ocean.append( np.asarray(ot) )
             totfb.append( np.array(tempfb) )
-            allT.append([t1,t2,t3,t4,t5])
+            allT.append([t1,t2,t3,t4,t5,t6,t7])
             allR.append([R1,R2,R3,R4])
             atmosdiv.append(np.asarray(div))
             
@@ -855,10 +966,14 @@ if calib:
     print(f"t03={T3}")
     print(f"t04={T4}")
     print(f"t05={T5}")
+    print(f"t06={T6}")
+    print(f"t07={T7}")
     print(f"atm01={atmosdiv[0][0][-1]}")
     print(f"atm02={atmosdiv[0][1][-1]}")
     print(f"atm03={atmosdiv[0][2][-1]}")
     print(f"atm04={atmosdiv[0][3][-1]}")
+    print(f"atm06={atmosdiv[0][4][-1]}")
+    print(f"atm07={atmosdiv[0][5][-1]}")
     print(f"ot01={ocean[0][0][-1]}")
     print(f"ot02={ocean[0][1][-1]}")
     print(f"ot03={ocean[0][2][-1]}")
@@ -972,12 +1087,12 @@ plt.title('Atm Div')
 plt.xlabel('Years') 
 expnum=len(atmosdiv)
 for i in range(expnum):
-    plt.plot(atmosdiv[i][0],label='West')
-    plt.plot(atmosdiv[i][1],label='East')
-    plt.plot(atmosdiv[i][2],label='North')
-    plt.plot(atmosdiv[i][3],label='South')
+    plt.plot(atmosdiv[i][0][:24],label='West')
+    plt.plot(atmosdiv[i][1][:24],label='East')
+    plt.plot(atmosdiv[i][2][:24],label='North')
+    plt.plot(atmosdiv[i][3][:24],label='South')
     
-plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+# plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 # plt.annotate("Trop W",xy=(0,div[0][0]-0.3))
 # plt.annotate("Trop E",xy=(0,div[1][0]-0.3))
 # plt.annotate("Ex Trop N",xy=(0,div[2][10000]))
@@ -2488,11 +2603,15 @@ for i in range(len(fb)):
     plt.plot(allT[i][2] - t03,color='tab:red', alpha= 0.6)
     plt.plot(allT[i][3] - t04,color='tab:orange', alpha= 0.6)
     plt.plot(allT[i][4] - t05,color='tab:green', alpha= 0.6)
+    plt.plot(allT[i][5] - t06,color='tab:pink', alpha=0.6)
+    plt.plot(allT[i][6] - t07,color='tab:cyan', alpha=0.6)
 
 
 plt.xticks(ticks=np.linspace(0,len(allT[0][0][:]),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years',fontsize=14) 
-plt.legend(labels=['west','east','north','south','under'],fontsize=14)
+plt.legend(labels=['west','east','north','south','under','high north','high south'],fontsize=14)
+# plt.xlim([0,24])
+# plt.ylim([0,5])
 
 #%% sensitivity of Ah or Aw
 cmap = plt.get_cmap('coolwarm')
@@ -2517,11 +2636,11 @@ plt.yticks(fontsize=14)
 
 #%% sensitivity to under volume
 
-zonalgrad = [ allT[0][i][0] - allT[0][i][1] for i in range(len(allT[0])) ]
-extrop = [ (allT[0][i][2]*M3 + allT[0][i][3]*M4)/(M3+M4) for i in range(len(allT[0])) ]
-meridgrad = [ (allT[0][i][0] + allT[0][i][1])/2 - extrop[i] for i in range(len(allT[0])) ]
+zonalgrad = [ allT[i][0] - allT[i][1] for i in range(len(allT)) ]
+extrop = [ (allT[i][2]*M3 + allT[i][3]*M4)/(M3+M4) for i in range(len(allT)) ]
+meridgrad = [ (allT[i][0] + allT[i][1])/2 - extrop[i] for i in range(len(allT)) ]
 
-labels = ["1/4", "1", "4"]
+labels = ["1/8", "1", "8"]
 plt.scatter(zonalgrad[0][0], meridgrad[0][0], marker='*', color='red', zorder=10, s=130)
 for i in range(len(labels)):
     plt.plot( zonalgrad[i], meridgrad[i], label = labels[i], linewidth=2)
