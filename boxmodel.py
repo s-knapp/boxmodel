@@ -107,6 +107,21 @@ S1 = 415; S2 = 415; S3 = 367; S4 = 380
 S6 = 228 # High lats NH
 S7 = 254 # High lats SH
 
+LW1 = 238 #LW out from CERES data of box
+LW2 = 273
+LW3 = 248
+LW4 = 256
+LW6 = 202
+LW7 = 214
+
+# ERA5 SW+LW
+swlw1 = 73
+swlw2 = 55
+swlw3 = 18
+swlw4 = 26
+swlw6 = -81
+swlw7 = -59
+
 #ranges of SW from CERES
 # S1 and S2: 386 in july to 437 in april
 S1min=386; S1max=437
@@ -423,57 +438,100 @@ def tcheck():
 
 #init temps for mean annual CERES SW and tuned mse intercept
 ### remember to get new control ocean values when retuning ###
-t01=301.57 #302.47 #302.3 #302.238 #302.65 
-t02=298.53 #299.23 #299.5 #299.507 #299.21 
-t03=293.16 #293.94 #293.8 #293.728 #292.28 
-t04=294.62 #295.48 #295.11 #295.013 #294.56 
-t05=293.83 #294.66 #294.328 #293.4 
-t06=276.1
-t07=278.4
+# t01=301.57 #302.47 #302.3 #302.238 #302.65 
+# t02=298.53 #299.23 #299.5 #299.507 #299.21 
+# t03=293.16 #293.94 #293.8 #293.728 #292.28 
+# t04=294.62 #295.48 #295.11 #295.013 #294.56 
+# t05=293.83 #294.66 #294.328 #293.4 
+# t06=276.1
+# t07=278.4
+
+#ERA5 mean temps
+t01=302.13
+t02=299.46
+t03=294.12
+t04=295.61
+t05=294.81 #weighted mean of t03 and t04
+t06=276.27
+t07=279.11
 
 # initial ocean convergence values
-ot01= -12.018575192140514 #W/m2
-ot02= -35.772093721373444
-ot03= 13.489698008868267
-ot04= 10.660383884555761
-ot05= -6.5e-7
-# initial atmos convergence values
-atm01=-45.20824916692165
-atm02=-39.06954631263214
-atm03=-40.713608945770446
-atm04=-52.755227482917775
+# ot01= -12.018575192140514 #W/m2
+# ot02= -35.772093721373444
+# ot03= 13.489698008868267
+# ot04= 10.660383884555761
+# ot05= -6.5e-7
+# # initial atmos convergence values
+# atm01=-45.20824916692165
+# atm02=-39.06954631263214
+# atm03=-40.713608945770446
+# atm04=-52.755227482917775
 
 ################################################################
-##### TUNING OF ATMOS DIV TO MATCH OBSERVED SW + LW & INITIAL TEMPS #####
+##### TUNING TO MATCH ERA5 SW + LW & INITIAL TEMPS #####
+## use mse int from era5 so all atmos is known, get Ah, Aw values
+## based on equations for box 1 & 2, Aw and Ah are required to have different values in each equation
+## using the current values of AHT, q term must be ~2.5x bigger in west than east
 q=Ah*( np.average([t01,t02],weights=[M1,M2]) - np.average([t03,t04],weights=[M3,M4])) + Aw*(t01-t02)
-q4 = q*M4/(M3+M4)
-q3 = q-q4
+q3 = q*M3/(M3+M4)
+q4 = q-q3
+
+qah = ( np.average([t01,t02],weights=[M1,M2]) - np.average([t03,t04],weights=[M3,M4]))
+qaw = (t01-t02)
+oc1 = (t02-t01) /M1 * (Cp*rho*h1)
+oc2 = (t05-t02) /M2 * (Cp*rho*h2)
 
 msenonwest = np.average( [mse(t02),mse(t03),mse(t04)], weights = [earea,narea,sarea] )
 atm_div_w = mse_gamma_w*(mse(t01) - msenonwest) 
-o1 = q*(1-epsilon)*(t02-t01) /M1 * (Cp*rho*h1)
-mse_int_w = -(S1*(1-alpha1) - 238 + atm_div_w + o1)
+mse_int_w = 118 #-(S1*(1-alpha1) - LW1 + atm_div_w + ot01)
+atm01 = atm_div_w + mse_int_w
 
 msenoneast = np.average( [mse(t01),mse(t03),mse(t04)], weights = [warea,narea,sarea] )
 atm_div_e = mse_gamma_e*(mse(t02) - msenoneast)
-o2 = q*(t05-t02) /M2 * (Cp*rho*h2)
-mse_int_e = -(S2*(1-alpha2) - 273 + atm_div_e + o2)
+mse_int_e = 27 #-(S2*(1-alpha2) - LW2 + atm_div_e + ot02)
+atm02 = atm_div_e + mse_int_e
 
 msenonnorth = np.average( [mse(t01),mse(t02),mse(t06)], weights = [warea,earea,hnarea] )
 atm_div_n = mse_gamma_n*(mse(t03) - msenonnorth)
-o3 = (q3*epsilon*(t02-t03) + q3*(1-epsilon)*(t01-t03))/M3 * (Cp*rho*h3)
-mse_int_n = -(S3*(1-alpha3) - 248 + atm_div_n + o3)
+mse_int_n = -25 # -(S3*(1-alpha3) - LW3 + atm_div_n + ot03)
+atm03 = atm_div_n + mse_int_n
 
 msenonsouth = np.average( [mse(t01),mse(t02),mse(t07)], weights = [warea,earea,hsarea] )
 atm_div_s = mse_gamma_s*(mse(t04) - msenonsouth)
-o4 = (q4*epsilon*(t02-t04) + q4*(1-epsilon)*(t01-t04))/M4 * (Cp*rho*h4)
-mse_int_s = -(S4*(1-alpha4) - 256 + atm_div_s + o4)
+mse_int_s = -9 #-(S4*(1-alpha4) - LW4 + atm_div_s + ot04)
+atm04 = atm_div_s + mse_int_s
+
+# set up linear system of equations for Ah, Aw and epsilon
+# syntax: [X1 * Aw, X2 * Ah] 
+# o1 = Aw*qaw*(1-epsilon)*oc1 + Ah*qah*(1-epsilon)*oc1 = -(swlw1 + atm01)
+# o2 = Aw*qaw*oc2 + Ah*qah*oc2 = -(swlw2 + atm02)
+# o3 = Aw*qaw*(epsilon*(t02-t03)+(1-epsilon)*(t01-t03))/M3 * (Cp*rho*h3)*M3/(M3+M4) + Ah*qah*(epsilon*(t02-t03)+(1-epsilon)*(t01-t03))/M3 * (Cp*rho*h3)*M3/(M3+M4)
+# o4 = Aw*qaw*(epsilon*(t02-t04)+(1-epsilon)*(t01-t04))/M4 * (Cp*rho*h4)*M4/(M3+M4) + Ah*qah*(epsilon*(t02-t04)+(1-epsilon)*(t01-t04))/M4 * (Cp*rho*h4)*M4/(M3+M4)
+epsilon = 0.48
+o1 = [qaw*(1-epsilon)*oc1, qah*(1-epsilon)*oc1, 1]
+o2 = [qaw*oc2, qah*oc2, 1]
+o3 = [qaw*(epsilon*(t02-t03)+(1-epsilon)*(t01-t03))/M3 * (Cp*rho*h3)*M3/(M3+M4), qah*(epsilon*(t02-t03)+(1-epsilon)*(t01-t03))/M3 * (Cp*rho*h3)*M3/(M3+M4), 1]
+o4 = [qaw*(epsilon*(t02-t04)+(1-epsilon)*(t01-t04))/M4 * (Cp*rho*h4)*M4/(M3+M4), qah*(epsilon*(t02-t04)+(1-epsilon)*(t01-t04))/M4 * (Cp*rho*h4)*M4/(M3+M4), 1]
+targets = [-(swlw1 + atm01), -(swlw2 + atm02), -(swlw3 + atm03), -(swlw4 + atm04)]
+A = [o1,o2,o3,o4]
+Aw,Ah,oc_int = np.linalg.lstsq(A,targets)[0]
+
+# then readjust MSE intercept to balance all energy budgets
+ot01 = np.dot( o1, [Aw,Ah,oc_int])
+ot02 = np.dot( o2, [Aw,Ah,oc_int])
+ot03 = np.dot( o3, [Aw,Ah,oc_int])
+ot04 = np.dot( o4, [Aw,Ah,oc_int])
+
+mse_int_w = -( swlw1 + atm_div_w + ot01 )
+mse_int_e = -( swlw2 + atm_div_e + ot02 )
+mse_int_n = -( swlw3 + atm_div_n + ot03 )
+mse_int_s = -( swlw4 + atm_div_s + ot04 )
 
 atm_div_hn = mse_gamma_hn*(mse(t06) - mse(t03))
-mse_int_hn = -(S6*(1-alpha6) - 201.8 + atm_div_hn)
+mse_int_hn = -(swlw6 + atm_div_hn)
 
 atm_div_hs = mse_gamma_hs*(mse(t07) - mse(t04)) 
-mse_int_hs = -(S7*(1-alpha7) - 213.9 + atm_div_hs)
+mse_int_hs = -(swlw7 + atm_div_hs)
 
 #####################################################################
 
@@ -607,14 +665,14 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     
                 # atm_div = mse_gamma*(mse_mean - mse(T1)) + mse_int 
                 msenonwest = np.average( [mse(T2),mse(T3),mse(T4)], weights = [earea,narea,sarea] )
-                atm_div_w = mse_gamma*(mse(T1) - msenonwest) + mse_int
+                atm_div_w = mse_gamma_w*(mse(T1) - msenonwest) + mse_int_w
                 
                 #to calibrate equil state
                 if calib:
-                    R= S1*(1-alpha1) - 238 + atm_div_w + co2[c] + fb1 #(Bwest*(T1-273.15) + Awest)
+                    R= swlw1 + atm_div_w + co2[c] + fb1 #(Bwest*(T1-273.15) + Awest)
                 #once equil T found
                 else:
-                    R= S1*(1-alpha1) - 238 + atm_div_w + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
+                    R= swlw1 + atm_div_w + co2[c] + fb1 #+ nino[0][0][t]  #use t01 for fixed OLR
                 
                 if (t+1)%500==0: #write out data every 1/12 of a year
                     tempfb[0].append( fb1 )
@@ -653,14 +711,14 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 
                 # atm_div = mse_gamma*(mse_mean - mse(T2)) + mse_int #old version gamma*(Tmean-T2)
                 msenoneast = np.average( [mse(T1),mse(T3),mse(T4)], weights = [warea,narea,sarea] )
-                atm_div_e = mse_gamma*(mse(T2) - msenoneast) + mse_int
+                atm_div_e = mse_gamma_e*(mse(T2) - msenoneast) + mse_int_e
                 
                 #to calibrate
                 if calib:
-                    R= S2*(1-alpha2) - 273 + atm_div_e + co2[c] + fb2 #(Beast*(T2-273.15) + Aeast)
+                    R= swlw2 + atm_div_e + co2[c] + fb2 #(Beast*(T2-273.15) + Aeast)
                 #once equil found
                 else:
-                    R= S2*(1-alpha2) - 273 + atm_div_e + co2[c] + fb2 #+ nino[1][0][t]
+                    R= swlw2 + atm_div_e + co2[c] + fb2 #+ nino[1][0][t]
                 
                 if (t+1)%500==0: #write out data every 1/12 of a year
                     tempfb[1].append( fb2 )
@@ -719,14 +777,14 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 
                 # atm_div = mse_gamma*(mse_mean - mse(T3)) + mse_int 
                 msenonnorth = np.average( [mse(T1),mse(T2),mse(T6)], weights = [warea,earea,hnarea] )
-                atm_div_n = mse_gamma*(mse(T3) - msenonnorth) + mse_int
+                atm_div_n = mse_gamma_n*(mse(T3) - msenonnorth) + mse_int_n
                 
                 #to calibrate
                 if calib:
-                    R= S3*(1-alpha3) - 248 + atm_div_n + co2[c] + fb3 # (Bnorth*(T3-273.15) + Anorth)
+                    R= swlw3 + atm_div_n + co2[c] + fb3 # (Bnorth*(T3-273.15) + Anorth)
                 #once equil found
                 else:
-                    R= S3*(1-alpha3) - 248 + atm_div_n + co2[c] + fb3 #+ nino[2][0][t]
+                    R= swlw3 + atm_div_n + co2[c] + fb3 #+ nino[2][0][t]
                 
                 if (t+1)%500==0: #write out data every 1/12 of a year
                     tempfb[2].append( fb3 )
@@ -766,15 +824,15 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                 
                 # atm_div = mse_gamma*(mse_mean - mse(T4)) + mse_int 
                 msenonsouth = np.average( [mse(T1),mse(T2),mse(T7)], weights = [warea,earea,hsarea] )
-                atm_div_s = mse_gamma*(mse(T4) - msenonsouth) + mse_int
+                atm_div_s = mse_gamma_s*(mse(T4) - msenonsouth) + mse_int_s
 
                 
                 #to calibrate
                 if calib:
-                    R= S4*(1-alpha4) - 256 + atm_div_s + co2[c] + fb4 # (Bsouth*(T4-273.15) + Asouth)
+                    R= swlw4 + atm_div_s + co2[c] + fb4 # (Bsouth*(T4-273.15) + Asouth)
                 #once equil found
                 else:
-                    R= S4*(1-alpha4) - 256 + atm_div_s + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
+                    R= swlw4 + atm_div_s + co2[c] + fb4 #+ aaht #+ nino[2][0][t]
                 
                 if (t+1)%500==0: #write out data every 1/12 of a year
                     tempfb[3].append( fb4 )
@@ -803,14 +861,14 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     mse_gamma = mse_gamma_hn
                     mse_int = mse_int_hn
     
-                atm_div_hn = mse_gamma*(mse(T6) - mse(T3)) + mse_int
+                atm_div_hn = mse_gamma_hn*(mse(T6) - mse(T3)) + mse_int_hn
                 
                 #to calibrate
                 if calib:
-                    R= S6*(1-alpha6) - 201.8 + atm_div_hn + co2[c] + fb6
+                    R= swlw6 + atm_div_hn + co2[c] + fb6
                 #once equil found
                 else:
-                    R= S6*(1-alpha6) - 201.8 + atm_div_hn + co2[c] + fb6 
+                    R= swlw6 + atm_div_hn + co2[c] + fb6 
                 
                 if (t+1)%500==0: #write out data every 1/12 of a year
                     tempfb[4].append( fb6 )
@@ -838,14 +896,14 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     mse_gamma = mse_gamma_hs
                     mse_int = mse_int_hs
     
-                atm_div_hs = mse_gamma*(mse(T7) - mse(T4)) + mse_int
+                atm_div_hs = mse_gamma_hs*(mse(T7) - mse(T4)) + mse_int_hs
                 
                 #to calibrate
                 if calib:
-                    R= S7*(1-alpha7) - 213.9 + atm_div_hs + co2[c] + fb7
+                    R= swlw7 + atm_div_hs + co2[c] + fb7
                 #once equil found
                 else:
-                    R= S7*(1-alpha7) - 213.9 + atm_div_hs + co2[c] + fb7 
+                    R= swlw7 + atm_div_hs + co2[c] + fb7 
                 
                 if (t+1)%500==0: #write out data every 1/12 of a year
                     tempfb[5].append( fb7 )
@@ -881,13 +939,13 @@ for itr in range(changenum): #decide what length you want to run for any paramet
                     #ocean transport, units T*m3/s
                     
                     # east feeding west with water not lost to ekman
-                    ocean1 = q*(1-epsilon)*(T2-T1) 
+                    ocean1 = q*(1-epsilon)*(T2-T1) + oc_int*M1/(Cp*rho*h1) #convert intercept W/m2 -> T*m3/s
                     #undercurrent (T5) feeding into east (T2)
-                    ocean2 = q*(T5-T2) 
+                    ocean2 = q*(T5-T2) + oc_int*M2/(Cp*rho*h2)
                     #east and west feeding north via ekman
-                    ocean3 = q3*epsilon*(T2-T3) + q3*(1-epsilon)*(T1-T3) 
+                    ocean3 = q3*epsilon*(T2-T3) + q3*(1-epsilon)*(T1-T3) + oc_int*M3/(Cp*rho*h3)
                     #east and west feeding south via ekman
-                    ocean4 = q4*epsilon*(T2-T4) + q4*(1-epsilon)*(T1-T4) 
+                    ocean4 = q4*epsilon*(T2-T4) + q4*(1-epsilon)*(T1-T4) + oc_int*M4/(Cp*rho*h4)
                     #undercurrent being fed by north and south, as average of two weighted by volumes of each
                     ocean5 = q3*(T3-T5) + q4*(T4-T5) #np.average( [q*(T3-T5), q2*(T4-T5)], weights=[M3,M4] ) 
                     
@@ -1009,7 +1067,7 @@ plt.legend()
 
 plt.subplot(1,3,2)
 for i in range(expnum):
-    plt.plot( (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i]) # T1 - T2
+    plt.plot( (allT[i][0]+allT[i][1])/2 - np.average([allT[i][2],allT[i][3] ],weights=[M3,M4],axis=0) ,color=expcols[i]) # T1 - T2
 plt.title('Merid Gradient (T1+T2)/2 - (T3+T4)/2')
 plt.ylabel('Merid')
 plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -1018,7 +1076,7 @@ plt.legend()
 
 plt.subplot(1,3,3)
 for i in range(expnum):
-    plt.plot( allT[i][0]-allT[i][1], (allT[i][0]+allT[i][1])/2 - (allT[i][2]+allT[i][3])/2 ,color=expcols[i]) # T1 - T2
+    plt.plot( allT[i][0]-allT[i][1], (allT[i][0]+allT[i][1])/2 - np.average([allT[i][2],allT[i][3] ],weights=[M3,M4],axis=0) ,color=expcols[i]) # T1 - T2
 plt.title('Merid vs Zonal')
 plt.ylabel('Merid')
 #plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
@@ -1083,14 +1141,14 @@ plt.legend()
 #############
 ##only works for last exp right now
 plt.figure(4)
-plt.title('Atm Div')
+plt.title('Atm Div - Relative warming = more negative')
 plt.xlabel('Years') 
 expnum=len(atmosdiv)
 for i in range(expnum):
-    plt.plot(atmosdiv[i][0][:24],label='West')
-    plt.plot(atmosdiv[i][1][:24],label='East')
-    plt.plot(atmosdiv[i][2][:24],label='North')
-    plt.plot(atmosdiv[i][3][:24],label='South')
+    plt.plot(atmosdiv[i][0][:],label='West')
+    plt.plot(atmosdiv[i][1][:],label='East')
+    plt.plot(atmosdiv[i][2][:],label='North')
+    plt.plot(atmosdiv[i][3][:],label='South')
     
 # plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
 # plt.annotate("Trop W",xy=(0,div[0][0]-0.3))
@@ -1148,23 +1206,23 @@ plt.legend()
 
 
 #only for one exp
-plt.figure(7)
-plt.title("Ocean heat transport vs local T")
-expnum=len(ocean)
-for i in range(1):
-    plt.plot(allT[i][0][1:] - t01, ocean[i][0],label='West')
-    plt.plot(allT[i][1][1:] - t02, ocean[i][1],label='East')
-    plt.plot(allT[i][2][1:] - t03, ocean[i][2],label='North')
-    plt.plot(allT[i][3][1:] - t04, ocean[i][3],label='South')
-    plt.plot(allT[i][4][1:] - t05, ocean[i][4],label='Undercurrent')
+# plt.figure(7)
+# plt.title("Ocean heat transport vs local T")
+# expnum=len(ocean)
+# for i in range(1):
+#     plt.plot(allT[i][0][1:] - t01, ocean[i][0],label='West')
+#     plt.plot(allT[i][1][1:] - t02, ocean[i][1],label='East')
+#     plt.plot(allT[i][2][1:] - t03, ocean[i][2],label='North')
+#     plt.plot(allT[i][3][1:] - t04, ocean[i][3],label='South')
+#     plt.plot(allT[i][4][1:] - t05, ocean[i][4],label='Undercurrent')
 
-# plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
-plt.hlines(y=0,xmin=0,xmax=6,linestyle='--',color='grey',alpha=0.5)
-plt.xticks(fontsize=13)
-plt.yticks(fontsize=13)
-plt.ylabel('OHT (W/m^2)', fontsize=15)
-plt.xlabel('ΔT (K)', fontsize=15) 
-plt.legend()
+# # plt.xticks(ticks=np.linspace(0,len(t1),6),labels=np.linspace(0,int(years),6).round())
+# plt.hlines(y=0,xmin=0,xmax=6,linestyle='--',color='grey',alpha=0.5)
+# plt.xticks(fontsize=13)
+# plt.yticks(fontsize=13)
+# plt.ylabel('OHT (W/m^2)', fontsize=15)
+# plt.xlabel('ΔT (K)', fontsize=15) 
+# plt.legend()
 
 #%% solve for lambda at each timestep
 # energy budget plot: (Cp*rho*h) * dT/dt = lambda*dT - atmdiv - ocndiv
@@ -1172,8 +1230,8 @@ plt.legend()
 #conversions from K/s to W/m2
 convfactor = [(Cp*rho*h1), (Cp*rho*h2), (Cp*rho*h3), (Cp*rho*h4)]
 T0=[t01,t02,t03,t04,t05]
-swlw =[S1*(1-alpha1) - (B*(t01-273.15) + A), S2*(1-alpha2) - (B*(t02-273.15) + A),
-       S3*(1-alpha3) - (B*(t03-273.15) + A), S4*(1-alpha4) - (B*(t04-273.15) + A)]
+swlw =[S1*(1-alpha1) - LW1, S2*(1-alpha2) - LW2,
+       S3*(1-alpha3) - LW3, S4*(1-alpha4) - LW4]
 labels = ['West','East','North','South']
 lamdas=[]
 colors=['tab:blue','tab:orange','tab:green','tab:purple']
@@ -1181,7 +1239,7 @@ colors=['tab:blue','tab:orange','tab:green','tab:purple']
 #lambda plot: use to solve for lambda if not fixed
 for i in range(4):
     dT = (allT[0][i][1:] - allT[0][i][:-1]) * convfactor[i]
-    dTdt = dT/dt #change in T per timestep
+    dTdt = dT/(dt*(timesteps/len(allT[0][0]))) #change in T per timestep, accounts for not writing out every time step
     
     deltaT = allT[0][i][:-1] - T0[i] #anomalous T at previous timestep
     
@@ -1203,7 +1261,7 @@ for i in range(4):
     plt.subplot(2,2,i+1)
     
     dT = (allT[0][i][1:] - allT[0][i][:-1]) * convfactor[i]
-    dTdt = (dT/dt) #change in T per timestep
+    dTdt = (dT/(dt*(timesteps/len(allT[0][0])))) #change in T per timestep
     
     deltaT = allT[0][i][:-1] - T0[i] #anomalous T at previous timestep
     
@@ -1231,19 +1289,19 @@ for i in range(4):
 #%% plot fractional contribution of each term to lambda
 titles=['West','East','North','South']
 convfactor = [(Cp*rho*h1), (Cp*rho*h2), (Cp*rho*h3), (Cp*rho*h4)]
-swlw =[S1*(1-alpha1) - (B*(t01-273.15) + A), S2*(1-alpha2) - (B*(t02-273.15) + A),
-       S3*(1-alpha3) - (B*(t03-273.15) + A), S4*(1-alpha4) - (B*(t04-273.15) + A)]
+swlw =[S1*(1-alpha1) - LW1, S2*(1-alpha2) - LW2,
+       S3*(1-alpha3) - LW3, S4*(1-alpha4) - LW4]
 T0=[t01,t02,t03,t04,t05]
 A0=[atm01,atm02,atm03,atm04]
 O0=[ot01,ot02,ot03,ot04]
 colors=['tab:blue','tab:orange','tab:green','tab:purple']
 exp=0
-for i in range(4):
+for i in range(3):
     plt.subplot(2,2,i+1)
     
     
     dT = (allT[exp][i][1:] - allT[exp][i][:-1]) * convfactor[i]
-    dTdt = (dT/dt) #change in T per timestep
+    dTdt = (dT/(dt*(timesteps/len(allT[0][0])))) #change in T per timestep
     
     deltaT = allT[exp][i][:-1] - T0[i] #anomalous T at previous timestep
     deltaA = atmosdiv[exp][i] - A0[i]
@@ -1255,20 +1313,20 @@ for i in range(4):
     #filled plot for each term
     
     dTdtdiff = 1-( np.abs(dTdt) / total )
-    plt.fill_between( np.arange(len(total)), 1, dTdtdiff , color=colors[0])
+    plt.fill_between( np.arange(len(total)), 1, dTdtdiff , color=colors[0],label="dT/dt")
     
     ocndiff = dTdtdiff - np.abs(deltaO) / total
-    plt.fill_between( np.arange(len(total)), dTdtdiff, ocndiff , color=colors[1])
+    plt.fill_between( np.arange(len(total)), dTdtdiff, ocndiff , color=colors[1], label = "OHT")
     if np.mean(deltaO)<0:
         plt.fill_between( np.arange(len(total)), dTdtdiff, ocndiff ,color='none',edgecolor='black',hatch='X')
     
     atmdiff = ocndiff - np.abs(deltaA) / total
-    plt.fill_between( np.arange(len(total)), ocndiff, atmdiff, color=colors[2] )
+    plt.fill_between( np.arange(len(total)), ocndiff, atmdiff, color=colors[2], label = "AHT" )
     if np.mean(deltaA)<0:
         plt.fill_between( np.arange(len(total)), ocndiff, atmdiff,color='none',edgecolor='black',hatch='X' )
 
     toadiff = atmdiff - (co2[0])/total
-    plt.fill_between( np.arange(len(total)), atmdiff, toadiff, color=colors[3] )
+    plt.fill_between( np.arange(len(total)), atmdiff, toadiff, color=colors[3], label="CO2 Forcing" )
     
     plt.xticks(ticks=np.linspace(0,len(total),6),labels=np.linspace(0,int(years),6).astype(int))
     if i>1:
@@ -1276,8 +1334,58 @@ for i in range(4):
     plt.xticks(fontsize=13)
     plt.yticks(fontsize=13)
     plt.title(titles[i],fontsize=15,weight='bold')
+    plt.legend()
     
+#%% plot total contribution of each term to lambda
 
+titles=['West','East','North','South']
+
+convfactor = [(Cp*rho*h1), (Cp*rho*h2), (Cp*rho*h3), (Cp*rho*h4)]
+T0=[t01,t02,t03,t04,t05]
+A0=[atm01,atm02,atm03,atm04]
+O0=[ot01,ot02,ot03,ot04]
+colors=['tab:blue','tab:orange','tab:green','tab:purple']
+exp=0
+for i in range(4):
+    plt.subplot(2,2,i+1)
+    
+    
+    dT = (allT[exp][i][1:] - allT[exp][i][:-1]) * convfactor[i]
+    dTdt = (dT/(dt*(timesteps/len(allT[0][0])))) #change in T per timestep
+    
+    deltaT = allT[exp][i][:-1] - T0[i] #anomalous T at previous timestep
+    deltaA = atmosdiv[exp][i] - A0[i]
+    deltaO = ocean[exp][i] - O0[i]
+    
+    #filled plot for each term
+    
+    dTdtpos = np.where(dTdt>0,dTdt,0)
+    dTdtneg = np.where(dTdt<0,dTdt,0) 
+    plt.fill_between( np.arange(len(dTdt)), 0, dTdtpos , color=colors[0],label="dT/dt",alpha=0.8)
+    plt.fill_between( np.arange(len(dTdt)), 0, dTdtneg , color=colors[0],alpha=0.8)
+    
+    deltaOpos = np.where(deltaO>0,deltaO,0)
+    deltaOneg = np.where(deltaO<0,deltaO,0)
+    plt.fill_between( np.arange(len(dTdt)), dTdtpos, np.nansum([dTdtpos,deltaOpos],axis=0) , color=colors[1], label = "OHT",alpha=0.8)
+    plt.fill_between( np.arange(len(dTdt)), dTdtneg, np.nansum([dTdtneg,deltaOneg],axis=0) , color=colors[1],alpha=0.8)
+    
+    deltaApos = np.where(deltaA>0,deltaA,0)
+    deltaAneg = np.where(deltaA<0,deltaA,0)
+    plt.fill_between( np.arange(len(dTdt)), np.nansum([dTdtpos,deltaOpos],axis=0), np.nansum([dTdtpos,deltaOpos,deltaApos],axis=0) , color=colors[2], label = "AHT",alpha=0.8)
+    plt.fill_between( np.arange(len(dTdt)), np.nansum([dTdtneg,deltaOneg],axis=0), np.nansum([dTdtneg,deltaOneg,deltaAneg],axis=0) , color=colors[2],alpha=0.8)
+    
+    plt.fill_between( np.arange(len(dTdt)), np.nansum([dTdtpos,deltaOpos,deltaApos],axis=0), np.nansum([dTdtpos,deltaOpos,deltaApos],axis=0)+co2[0], color=colors[3], label="CO2 Forcing",alpha=0.8 )
+    
+    plt.hlines( y=0 ,xmin=0,xmax=len(dTdt), linestyle='--', color='silver',alpha=1)
+    plt.plot( (dTdt+deltaA+deltaO+co2[0]), linewidth=2,color='black',label='Total')
+    plt.plot( (dTdt+deltaA+deltaO+co2[0])+totfb[0][i], linewidth=2,color='gold',label='Total + FB')
+    plt.xticks(ticks=np.linspace(0,len(dTdt),6),labels=np.linspace(0,int(years),6).astype(int))
+    if i>1:
+        plt.xlabel('Years',fontsize=15)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    plt.title(titles[i],fontsize=15,weight='bold')
+    plt.legend(fontsize=14)
 #%% gregory plots
 
 
@@ -1292,8 +1400,8 @@ for i in range(4):
     
     deltaT = allT[0][i][1:] - allT[0][i][0]
     
-    y = deltaTOA[::500] # take monthly (every 500) to make plotting easier
-    x = deltaT[::500]
+    y = deltaTOA # {::500] take monthly (every 500) to make plotting easier
+    x = deltaT
     plt.scatter( x, y , alpha=0.5, s=40, facecolor = 'white', edgecolors='grey')
     
     #first X years
@@ -2581,7 +2689,7 @@ plt.title('Box model - CMIP6 mean regional temp difference')
 #%%  Relative warming in each box by certain year
 
 plt.figure(1)
-plt.title("Temperatures")
+plt.title("ΔTemperatures")
 cmap = plt.get_cmap('Blues')
 #wcolors=cmap(np.linspace(0,1,len(changed)))
 #cmap = plt.get_cmap('Reds')
@@ -2609,6 +2717,7 @@ for i in range(len(fb)):
 
 plt.xticks(ticks=np.linspace(0,len(allT[0][0][:]),6),labels=np.linspace(0,int(years),6).round())
 plt.xlabel('Years',fontsize=14) 
+plt.ylabel('ΔT',fontsize=14)
 plt.legend(labels=['west','east','north','south','under','high north','high south'],fontsize=14)
 # plt.xlim([0,24])
 # plt.ylim([0,5])
